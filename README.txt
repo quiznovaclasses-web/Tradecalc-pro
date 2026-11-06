@@ -1,33 +1,27 @@
-TRADECALC PRO — PHASE 1 FRONTEND PACKAGE + SUPABASE CLIENT CONFIG
+TRADECALC PRO — SUPABASE ADMIN LOGIN UPDATE
 
 FILES
-- index.html: public Crypto & Forex calculator website
-- admin.html: separate Admin Dashboard
-- supabase-config.js: supplied Supabase project URL + publishable key; initializes browser client
-- sitemap.xml: public homepage sitemap template
-- robots.txt: allows public pages and excludes admin dashboard from crawling
+- index.html: public calculator website
+- admin.html: dashboard with Supabase email/password authentication
+- supabase-config.js: public Supabase project URL and publishable key
+- sitemap.xml: search engine sitemap (update placeholder domain if still present)
+- robots.txt: crawler rules
 
 DEPLOY
-1. Extract this ZIP. Keep all five files together in the website root folder.
-2. Upload all files to the ROOT of the same GitHub repository.
-3. GitHub Pages: Settings > Pages > Deploy from a branch > main > /(root) > Save.
-4. Cloudflare Pages: Connect the repository; Framework preset None; leave Build command blank; set output directory to /.
-5. Website: https://YOUR-DOMAIN.com/ ; Admin: https://YOUR-DOMAIN.com/admin.html
+1. Upload/replace ALL files in the repository root.
+2. Keep all files in the same root folder. Do not rename supabase-config.js.
+3. Redeploy Cloudflare Pages.
+4. Public site: https://YOUR-DOMAIN/
+5. Admin: https://YOUR-DOMAIN/admin.html
 
-IMPORTANT: SITEMAP DOMAIN
-Before submitting sitemap to Google Search Console, replace YOUR-DOMAIN.com in sitemap.xml and robots.txt with the actual domain on which the site is live. The admin page is intentionally not included in the sitemap.
+ADMIN LOGIN
+- Use the email/password account created in Supabase Authentication > Users.
+- The user must also have a matching row in public.admin_users with user_id equal to auth.users.id and is_active = true.
+- Dashboard calls public.is_tradecalc_admin() before showing the admin panel.
+- There is no public signup form.
 
-SUPABASE STATUS
-The supplied project URL and publishable key are added in supabase-config.js. Both HTML pages load Supabase JS v2 and initialize window.tradeCalcSupabase. This confirms client setup only; it does NOT yet save settings, affiliate offers, logo, or CEO profile to database. Existing settings/auth remain browser-local until database schema, Row Level Security (RLS) policies, and Supabase Auth integration are implemented in Phase 2.
-
-SECURITY
-The sb_publishable key is intended for public browser use. It is not an admin password and does not grant safe unrestricted database access by itself. Enable RLS on every exposed table and use restrictive policies. NEVER put sb_secret_ or service_role keys in HTML, JS, GitHub, or this ZIP.
-
-ADMIN FIRST LOGIN
-Open /admin.html. Create a username and password (minimum 10 characters), then sign in. This current static preview uses browser-local authentication and is NOT production-secure.
-
-CURRENT LIMITATIONS
-- Website settings, logo, CEO profile/ID and affiliate offers remain in localStorage (same browser/domain only).
-- Supabase client is initialized but database synchronization is not yet implemented.
-- Monetag code is stored as configuration text only; real script injection and ad limits need backend integration.
-- CEO ID is a self-generated company profile card, not a government-issued identity document.
+IMPORTANT
+- Supabase URL and sb_publishable key are intended for browser use. Never expose a secret/service_role key.
+- Ensure Row Level Security is enabled on every table and only grant the minimum required permissions.
+- This update secures dashboard entry using Supabase Auth. Existing website settings (logo, affiliate offers, CEO profile, SEO and tool toggles) still use browser localStorage for now; the next database step will migrate those settings to Supabase tables.
+- This is not yet cross-device settings sync.
