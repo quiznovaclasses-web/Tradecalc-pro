@@ -47,32 +47,3 @@ Replace index.html and admin.html in the GitHub repository with these versions.
 Keep supabase-config.js and all SQL/reference files in the repository root.
 Deploy/redeploy the Cloudflare Pages project. Both pages must share the same
 origin so /admin.html and index.html can use the same Supabase configuration.
-
-
-INDIVIDUAL SEO CALCULATOR PAGES
--------------------------------
-This build keeps the existing homepage and all calculator/admin/Supabase integrations.
-It also adds nine static, crawlable calculator landing pages:
-- /crypto-profit-calculator/
-- /forex-pip-calculator/
-- /position-size-calculator/
-- /leverage-margin-calculator/
-- /risk-reward-calculator/
-- /compound-growth-calculator/
-- /dca-average-entry-calculator/
-- /crypto-break-even-calculator/
-- /trading-fee-calculator/
-Each page has its own title, description, keywords, canonical URL, explanatory content, FAQs,
-and loads the same Supabase-backed affiliate offers and Monetag settings as the homepage.
-The homepage continues to show the full calculator menu. Calculator visibility remains
-controlled by the existing calculator_tools table. If an individual tool is disabled in
-Supabase, its SEO page displays an unavailable notice rather than silently showing a
-different calculator. Enable the tool in Admin -> Calculator tools to activate it.
-The sitemap now lists the homepage and all nine calculator landing pages.
-
-DEPLOYMENT NOTE
----------------
-Upload the full ZIP contents to the root of the same Cloudflare Pages project. Keep each
-calculator folder and its index.html path intact. After deployment, test each page URL,
-then submit https://tradecalc-pro.pages.dev/sitemap.xml in Google Search Console.
-Search indexing and ranking are determined by Google and are not guaranteed.
