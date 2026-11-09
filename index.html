@@ -133,7 +133,39 @@ async function loadPublicAffiliateOffers(){const sb=window.tradeCalcSupabase;if(
 
 function articleDate(v){try{return new Date(v).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'})}catch(_){return ''}}
 function articleHref(slug){const u=new URL(location.href);u.search='';u.hash='';u.searchParams.set('article',slug);return u.toString()}
-function safeArticleHtml(html){const doc=new DOMParser().parseFromString(String(html||''),'text/html');const allowed=new Set(['P','BR','H2','H3','H4','UL','OL','LI','STRONG','B','EM','I','U','A','BLOCKQUOTE','PRE','CODE','HR','IMG','TABLE','THEAD','TBODY','TR','TH','TD']);doc.querySelectorAll('*').forEach(el=>{if(!allowed.has(el.tagName)){el.replaceWith(...el.childNodes);return;}[...el.attributes].forEach(a=>{const k=a.name.toLowerCase(),v=a.value;if(el.tagName==='A'&&k==='href'&&/^https:\/\//i.test(v))return;if(el.tagName==='IMG'&&k==='src'&&/^https:\/\//i.test(v))return;if(el.tagName==='IMG'&&k==='alt')return;if(el.tagName==='A'&&k==='target')return;el.removeAttribute(a.name)});if(el.tagName==='A'){el.setAttribute('target','_blank');el.setAttribute('rel','nofollow noopener')}if(el.tagName==='IMG'){el.setAttribute('loading','lazy');el.setAttribute('alt',el.getAttribute('alt')||'Article image')}});return doc.body.innerHTML;}
+function safeArticleHtml(html){
+  const template=document.createElement('template');
+  template.innerHTML=String(html||'');
+  const allowed=new Set(['P','BR','DIV','SPAN','H1','H2','H3','H4','UL','OL','LI','STRONG','B','EM','I','U','A','BLOCKQUOTE','PRE','CODE','HR','IMG','TABLE','THEAD','TBODY','TR','TH','TD']);
+  const elements=Array.from(template.content.querySelectorAll('*'));
+  elements.forEach(el=>{
+    if(!el.isConnected && !template.content.contains(el)) return;
+    if(!allowed.has(el.tagName)){
+      const parent=el.parentNode;
+      if(parent){
+        while(el.firstChild) parent.insertBefore(el.firstChild,el);
+        parent.removeChild(el);
+      }
+      return;
+    }
+    Array.from(el.attributes).forEach(a=>{
+      const k=a.name.toLowerCase(),v=a.value;
+      if(el.tagName==='A' && k==='href' && /^https:\/\//i.test(v)) return;
+      if(el.tagName==='IMG' && k==='src' && /^https:\/\//i.test(v)) return;
+      if(el.tagName==='IMG' && k==='alt') return;
+      el.removeAttribute(a.name);
+    });
+    if(el.tagName==='A'){
+      el.setAttribute('target','_blank');
+      el.setAttribute('rel','nofollow noopener');
+    }
+    if(el.tagName==='IMG'){
+      el.setAttribute('loading','lazy');
+      el.setAttribute('alt',el.getAttribute('alt')||'Article image');
+    }
+  });
+  return template.innerHTML;
+}
 function articleAffiliateMarkup(a){const ids=Array.isArray(a.partner_offer_ids)?a.partner_offer_ids.map(String):[];const rows=articlePartnerRows.filter(o=>ids.includes(String(o.id))&&articlePartnerAllowed(o));if(!rows.length)return '';return `<aside class="article-inline-box article-partners"><div class="eyebrow">Editor-selected partner offers</div><h2>Explore trusted tools & platforms</h2><div class="offer-grid">${rows.map(o=>`<article class="offer"><span class="tag">${esc(o.category||'Partner')}</span><b>${esc(o.name)}</b><p>${esc(o.description||'Explore the platform and review its terms.')}</p><a class="btn small" href="${esc(o.url)}" target="_blank" rel="nofollow sponsored noopener">${esc(o.button_text||'Explore offer')} ↗</a></article>`).join('')}</div><p class="note">Disclosure: Some links are affiliate links. We may earn a commission at no additional cost to you.</p></aside>`}
 function articlePartnerAllowed(o){const cc=(visitorCountry||'').toUpperCase(),allow=(Array.isArray(o.allowed_countries)?o.allowed_countries:[]).map(x=>String(x).toUpperCase()),block=(Array.isArray(o.blocked_countries)?o.blocked_countries:[]).map(x=>String(x).toUpperCase());if(!cc)return allow.length===0&&block.length===0;if(block.includes(cc))return false;return !allow.length||allow.includes(cc)}
 function articleAdMarkup(a){const ids=Array.isArray(a.article_ad_slots)?a.article_ad_slots:[];return ids.map(n=>{const ad=articleAdRows[Number(n)-1];return ad&&ad.enabled&&ad.code?`<div class="article-inline-ad" id="articleAd${Number(n)}"></div>`:''}).join('')}
