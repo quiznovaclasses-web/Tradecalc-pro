@@ -145,20 +145,54 @@ function renderArticleLists(){const ticker=$('articleTicker'),archive=$('article
 function renderArticleArchive(){const archive=$('articleArchive');if(!archive)return;const rows=articleRows.slice(0,(articlePage+1)*ARTICLE_PAGE_SIZE);archive.innerHTML=rows.map(articleCard).join('')||'<div class="offer"><b>No articles yet</b></div>';const more=$('loadMoreArticles');if(more)more.classList.toggle('hidden',rows.length>=articleRows.length);}
 async function loadPublicArticles(){const sb=window.tradeCalcSupabase;if(!sb){console.error('Articles: Supabase client is unavailable.');return;}loadArticleMonetization();try{const {data,error}=await sb.from('articles').select('id,title,slug,excerpt,content,category,published_at,created_at').eq('status','published').lte('published_at',new Date().toISOString()).order('published_at',{ascending:false}).limit(500);if(error)throw error;articleRows=data||[];renderArticleLists();const slug=new URLSearchParams(location.search).get('article');if(slug)await showArticle(slug);}catch(e){console.error('Article library query failed:',e);const ticker=$('articleTicker'),archive=$('articleArchive');if(ticker)ticker.innerHTML=`<div class="article-ticker-row"><span class="meta"><b>Article library temporarily unavailable</b><small>${esc(e.message||'Database request failed')}</small></span></div>`;if(archive)archive.innerHTML=`<div class="offer"><b>Articles unavailable</b><p>${esc(e.message||'Database request failed')}</p></div>`;const slug=new URLSearchParams(location.search).get('article');if(slug)await showArticle(slug);}}
 async function showArticle(slug){
- const cleanSlug=String(slug||'').trim();const view=$('articleView');if(!view)return false;
- let a=articleRows.find(x=>String(x.slug||'').trim()===cleanSlug);
- // Direct lookup makes shared article URLs resilient even if the initial article list is delayed.
- if(!a&&window.tradeCalcSupabase){
-   try{const {data,error}=await window.tradeCalcSupabase.from('articles').select('id,title,slug,excerpt,content,category,published_at,created_at').eq('slug',cleanSlug).eq('status','published').maybeSingle();if(error)throw error;a=data||null;if(a&&!articleRows.some(x=>x.id===a.id))articleRows.unshift(a);}
-   catch(err){console.warn('Direct article lookup failed:',err.message);}
- }
+ const cleanSlug=String(slug||'').trim();
+ const view=document.getElementById('articleView');
+ if(!view)return false;
  const allSections=document.querySelectorAll('#publicSite .wrap > section');
- if(!a){view.classList.remove('hidden');view.style.display='block';view.innerHTML='<div class="article-detail-inner"><h1>Article could not be loaded</h1><p class="note">The article link was opened, but its published content could not be retrieved. Please check that the article is published and its public read policy is enabled.</p><a class="btn secondary" href="'+location.pathname+'#articles">← Browse all articles</a></div>';allSections.forEach(el=>{if(el!==view)el.classList.add('hidden')});return false;}
- allSections.forEach(el=>{if(el!==view)el.classList.add('hidden')});view.classList.remove('hidden');view.style.display='block';
- let body='';try{body=articleBodyWithAds(a);}catch(err){console.warn('Article ad placement rendering skipped:',err);body=safeArticleHtml(a.content);}let partners='';try{partners=articleAffiliateMarkup(a);}catch(err){console.warn('Article partner cards rendering skipped:',err);}
- view.innerHTML=`${a.cover_image?`<img class="article-cover" src="${esc(a.cover_image)}" alt="${esc(a.title)}">`:''}<div class="article-detail-inner"><div class="eyebrow">${esc(a.category||'Trading insights')}</div><h1>${esc(a.title)}</h1><p style="color:var(--muted);font-size:18px">${esc(a.excerpt||'')}</p><div class="article-byline">By ${esc(a.author_name||'TradeCalc Pro Editorial Team')} · ${articleDate(a.published_at||a.created_at)}</div><div class="article-share"><button class="btn" id="shareArticle">Share article ↗</button><a class="btn secondary" href="${location.pathname}#articles" style="text-decoration:none">← All articles</a></div><div class="article-prose">${body||'<p>Article content is currently empty.</p>'}</div>${partners}<div class="article-tags">${(Array.isArray(a.tags)?a.tags:[]).map(t=>`<span>${esc(t)}</span>`).join('')}</div><p class="note">Editorial content is for educational purposes only and is not financial advice. Affiliate disclosure: some links may earn us a commission at no extra cost to you.</p><div class="article-share"><button class="btn" id="shareArticleBottom">Share this guide ↗</button><a class="btn secondary" href="${location.pathname}#articles" style="text-decoration:none">Browse more articles</a></div></div>`;
- document.title=a.seo_title||a.title;const desc=document.querySelector('meta[name="description"]');if(desc)desc.content=a.seo_description||a.excerpt||a.title;const ogt=document.querySelector('meta[property="og:title"]');if(ogt)ogt.content=a.seo_title||a.title;const ogd=document.querySelector('meta[property="og:description"]');if(ogd)ogd.content=a.seo_description||a.excerpt||a.title;const ogi=document.querySelector('meta[property="og:image"]');if(ogi)ogi.content=a.cover_image||'';const canon=document.getElementById('canonicalLink');if(canon)canon.href=articleHref(a.slug);
- const share=async()=>{const url=articleHref(a.slug);try{if(navigator.share)await navigator.share({title:a.title,text:a.excerpt||a.title,url});else{await navigator.clipboard.writeText(url);alert('Article link copied!')}}catch(e){if(e.name!=='AbortError')try{await navigator.clipboard.writeText(url);alert('Article link copied!')}catch(_){}}};['shareArticle','shareArticleBottom'].forEach(id=>{const b=$(id);if(b)b.onclick=share});try{installArticleAds(a);}catch(err){console.warn('Article ad installation skipped:',err);}window.scrollTo({top:0,behavior:'smooth'});return true;
+ // Keep the page visible while the article is being fetched. This prevents a blank
+ // screen if the request or rendering fails.
+ view.classList.remove('hidden');
+ view.style.display='block';
+ view.innerHTML='<div class="article-detail-inner"><h1>Loading article…</h1><p class="note">Please wait while the published article is loaded.</p></div>';
+ try{
+   let a=articleRows.find(x=>String(x.slug||'').trim()===cleanSlug);
+   // Always perform a direct lookup when the list did not provide the full article.
+   if(!a || !a.content){
+     const sb=window.tradeCalcSupabase;
+     if(!sb)throw new Error('Supabase client is not initialized. Check supabase-config.js and the Supabase script connection.');
+     const {data,error}=await sb.from('articles')
+       .select('id,title,slug,excerpt,content,category,published_at,created_at,cover_image,author_name,tags,seo_title,seo_description')
+       .eq('slug',cleanSlug).eq('status','published').maybeSingle();
+     if(error)throw error;
+     a=data||null;
+   }
+   if(!a)throw new Error('No published article was returned for slug: '+cleanSlug);
+   if(!String(a.content||'').trim())throw new Error('The article record was found, but its content field is empty.');
+   const body=safeArticleHtml(a.content);
+   const safeTitle=esc(a.title||'Untitled article');
+   const dateText=articleDate(a.published_at||a.created_at);
+   const excerpt=a.excerpt?`<p class="article-excerpt">${esc(a.excerpt)}</p>`:'';
+   const cover=a.cover_image?`<img class="article-cover" src="${esc(a.cover_image)}" alt="${safeTitle}">`:'';
+   const tags=Array.isArray(a.tags)?a.tags.map(t=>`<span>${esc(t)}</span>`).join(''):'';
+   const contentMarkup=`${cover}<div class="article-detail-inner"><div class="eyebrow">${esc(a.category||'Trading insights')}</div><h1>${safeTitle}</h1>${excerpt}<div class="article-byline">By ${esc(a.author_name||'TradeCalc Pro Editorial Team')} · ${dateText}</div><div class="article-share"><a class="btn secondary" href="${location.pathname}#articles" style="text-decoration:none">← All articles</a></div><div class="article-prose">${body}</div><div class="article-tags">${tags}</div><p class="note">Editorial content is for educational purposes only and is not financial advice. Affiliate disclosure: some links may earn us a commission at no extra cost to you.</p></div>`;
+   // Only hide homepage sections after the article markup has been successfully built.
+   view.innerHTML=contentMarkup;
+   allSections.forEach(el=>{if(el!==view)el.classList.add('hidden');});
+   view.classList.remove('hidden');
+   view.style.display='block';
+   document.title=a.seo_title||a.title||'TradeCalc Pro Article';
+   const desc=document.querySelector('meta[name="description"]');if(desc)desc.content=a.seo_description||a.excerpt||a.title||'';
+   const canon=document.getElementById('canonicalLink');if(canon)canon.href=location.href;
+   window.scrollTo({top:0,behavior:'instant'});
+   return true;
+ }catch(err){
+   console.error('Article page failed to render:',err);
+   // Do not leave visitors with an empty screen: surface the real failure.
+   view.innerHTML=`<div class="article-detail-inner"><h1>Article could not be displayed</h1><p class="note">${esc(err&&err.message?err.message:String(err))}</p><a class="btn secondary" href="${location.pathname}#articles" style="text-decoration:none">← Browse all articles</a></div>`;
+   allSections.forEach(el=>{if(el!==view)el.classList.add('hidden');});
+   view.classList.remove('hidden');view.style.display='block';
+   return false;
+ }
 }
 
 function installMonetagTag(code,slot){if(!code)return;const target=$(slot);if(!target||target.dataset.loaded==='1')return;const doc=new DOMParser().parseFromString(code,'text/html');const nodes=[...doc.body.childNodes];if(!nodes.length){console.warn('Empty Monetag placement code:',slot);return;}target.dataset.loaded='1';nodes.forEach(node=>{if(node.nodeType===Node.TEXT_NODE&&!node.textContent.trim())return;if(node.nodeName==='SCRIPT'){const fresh=document.createElement('script');[...node.attributes].forEach(a=>fresh.setAttribute(a.name,a.value));fresh.text=node.textContent||'';target.appendChild(fresh);}else target.appendChild(document.importNode(node,true));});}
@@ -167,7 +201,7 @@ async function loadMonetagSettings(){const sb=window.tradeCalcSupabase;if(!sb)re
 function applyShareMode(){document.body.classList.toggle('shared-tool-mode',sharedToolMode);const side=document.querySelector('.layout .side');if(side)side.setAttribute('aria-hidden',sharedToolMode?'true':'false');}
 function applyTools(){document.querySelectorAll('.toolbtn').forEach(b=>b.classList.toggle('hidden',!settings.tools[b.dataset.tool]));if(!settings.tools[current]&&!sharedToolMode){current=Object.keys(defs).find(k=>settings.tools[k])||'crypto';renderCalc();}applyShareMode();}
 async function loadPublicTools(){const sb=window.tradeCalcSupabase;if(!sb)return;try{const {data,error}=await sb.from('calculator_tools').select('tool_key,enabled').order('sort_order',{ascending:true});if(error)throw error;const visibility={...defaults.tools};(data||[]).forEach(row=>{if(Object.prototype.hasOwnProperty.call(visibility,row.tool_key))visibility[row.tool_key]=!!row.enabled;});settings.tools=visibility;applyTools();}catch(e){console.warn('Calculator visibility could not be loaded from Supabase:',e.message);applyTools();}}
-if(!defs[current]){current='crypto';sharedToolMode=false;}applyShareMode();$('year').textContent=new Date().getFullYear();applyBrand();document.title=settings.seo.title;document.querySelector('meta[name=description]').content=settings.seo.description;renderOffers();applyTools();loadPublicBrand();loadPublicSeo();loadMonetagSettings();loadPublicAffiliateOffers();loadPublicTools();loadPublicArticles();detectVisitorCountry();
+if(!defs[current]){current='crypto';sharedToolMode=false;}applyShareMode();$('year').textContent=new Date().getFullYear();applyBrand();document.title=settings.seo.title;document.querySelector('meta[name=description]').content=settings.seo.description;renderOffers();applyTools();loadPublicBrand();loadPublicSeo();loadMonetagSettings();loadPublicAffiliateOffers();loadPublicTools();const initialArticleSlug=new URLSearchParams(location.search).get('article');if(initialArticleSlug)showArticle(initialArticleSlug);loadPublicArticles();detectVisitorCountry();
 window.addEventListener('popstate',()=>{const slug=new URLSearchParams(location.search).get('article');if(slug)showArticle(slug);else{document.querySelectorAll('#publicSite .wrap > section').forEach(el=>el.classList.remove('hidden'));const v=$('articleView');if(v)v.classList.add('hidden');}});
 window.addEventListener('storage',e=>{if(e.key==='tcp_settings'){settings=readSettings();settings.tools={...defaults.tools,...(settings.tools||{})};settings.seo={...defaults.seo,...(settings.seo||{})};applyBrand();document.title=settings.seo.title;renderOffers();applyTools();}});
 })();
