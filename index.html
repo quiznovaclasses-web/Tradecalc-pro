@@ -257,8 +257,9 @@ async function showArticle(slug){
 
 // One approved Adsterra 300x250 display unit is reused in the site's existing ad placements.
 // Each placement gets an isolated iframe so Adsterra's document.write-based loader cannot cover page text.
-const ADSTERRA_300X250_KEY='54c5ed444bc6338b4e8ea46c1c4496df';
-const ADSTERRA_300X250_SRC='https://www.highrevenueformat.com/54c5ed444bc6338b4e8ea46c1c4496df/invoke.js';
+let ADSTERRA_300X250_KEY='54c5ed444bc6338b4e8ea46c1c4496df';
+let ADSTERRA_300X250_SRC='https://www.highrevenueformat.com/54c5ed444bc6338b4e8ea46c1c4496df/invoke.js';
+function setAdsterraCode(code){const raw=String(code||'');const key=(raw.match(/[\'\"]key[\'\"]\s*:\s*[\'\"]([a-f0-9]{20,})[\'\"]/i)||[])[1]||(raw.match(/highrevenueformat\.com\/([a-f0-9]{20,})\/invoke\.js/i)||[])[1];if(key){ADSTERRA_300X250_KEY=key;ADSTERRA_300X250_SRC='https://www.highrevenueformat.com/'+key+'/invoke.js';}}
 function installAdsterraInSlot(slotId){
  const target=$(slotId);if(!target||target.dataset.adsterraLoaded==='1')return;
  target.replaceChildren();target.classList.remove('hidden');target.style.display='flex';target.style.minHeight='250px';target.style.width='100%';target.style.margin='18px auto';target.style.overflow='hidden';
@@ -271,7 +272,9 @@ function installHomeBannerTag(code,zone){installAdsterraInSlot('homeBanner'+zone
 function installSitewideInPagePush(code){/* Disabled: fixed-position push overlays are not used for inline placements. */}
 function renderCalculatorAds(){[1,2,3,4].forEach(n=>installAdsterraInSlot('calcAd'+n));}
 async function loadMonetagSettings(){
- // Keep the five homepage, four calculator/tool and article placement containers in their original positions.
+ // Read the active Adsterra 300x250 code from the existing settings row; retain the supplied fallback if settings are empty.
+ try{const sb=window.tradeCalcSupabase;if(sb){const {data}=await sb.from('monetag_settings').select('home_zone1_enabled,home_zone1_code,zone1_enabled,zone1_code').eq('id',1).maybeSingle();if(data)setAdsterraCode((data.home_zone1_enabled&&data.home_zone1_code)||(data.zone1_enabled&&data.zone1_code)||'');}}catch(e){console.warn('Adsterra settings fallback used:',e.message);}
+ // Keep all original fixed placement containers in their existing positions.
  [1,2,3,4,5].forEach(n=>installAdsterraInSlot('homeBanner'+n));
  [1,2,3,4].forEach(n=>installAdsterraInSlot('calcAd'+n));
 }
