@@ -265,10 +265,17 @@ async function showArticle(slug){
 
 function mountAdCodeInSlot(code,slot){
  const target=$(slot); if(!target||target.dataset.loaded==='1'||!code)return;
- const source=String(code).trim();
+ let source=String(code).trim();
  target.replaceChildren(); target.style.display='block'; target.style.minHeight='250px';
  target.style.width='100%'; target.style.maxWidth='300px'; target.style.margin='18px auto'; target.style.overflow='hidden';
  target.dataset.loaded='1';
+ // If an Adsterra banner snippet was pasted more than once into one dashboard zone,
+ // keep only the first complete atOptions + invoke.js pair for this placement.
+ if(/highrevenueformat\.com\/.*\/invoke\.js/i.test(source)){
+   const optionMatch=source.match(/<script\b[^>]*>[\s\S]*?atOptions\s*=[\s\S]*?<\/script>/i);
+   const invokeMatch=source.match(/<script\b[^>]*src=[\"'][^\"']*highrevenueformat\.com\/[^\"']*\/invoke\.js[^\"']*[\"'][^>]*>[\s\S]*?<\/script>/i);
+   if(optionMatch&&invokeMatch)source=optionMatch[0]+'\n'+invokeMatch[0];
+ }
  // Adsterra 300x250 invoke.js relies on the global atOptions object.
  // Run each ad unit in its own iframe so repeated placements cannot overwrite atOptions.
  if(/highrevenueformat\.com\/.*\/invoke\.js/i.test(source)&&/['"]format['"]\s*:\s*['"]iframe['"]/.test(source)){
