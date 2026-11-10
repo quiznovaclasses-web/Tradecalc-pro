@@ -258,29 +258,28 @@ async function showArticle(slug){
 }
 
 function installMonetagTag(code,slot){if(!code)return;const target=$(slot);if(!target||target.dataset.loaded==='1')return;const doc=new DOMParser().parseFromString(code,'text/html');const nodes=[...doc.body.childNodes];if(!nodes.length){console.warn('Empty Monetag placement code:',slot);return;}target.dataset.loaded='1';nodes.forEach(node=>{if(node.nodeType===Node.TEXT_NODE&&!node.textContent.trim())return;if(node.nodeName==='SCRIPT'){const fresh=document.createElement('script');[...node.attributes].forEach(a=>fresh.setAttribute(a.name,a.value));fresh.text=node.textContent||'';target.appendChild(fresh);}else target.appendChild(document.importNode(node,true));});}
-function installHomeBannerTag(code,slot){
- const target=$(slot); if(!target||target.dataset.loaded==='1'||!code)return;
- // Clear any old placeholder text and keep the slot in normal document flow.
- target.replaceChildren(); target.style.display='block'; target.style.minHeight='0';
- const source=String(code).trim();
- // Monetag In-Page Push (Banner) snippets append their loader to document.body by default.
- // Repoint only that append target to this exact homepage slot so the creative stays inline.
- const localized=source.replace(/\[\s*document\.documentElement\s*,\s*document\.body\s*\]\.filter\(Boolean\)\.pop\(\)/g,'document.currentScript.parentElement');
- target.dataset.loaded='1';
- const doc=new DOMParser().parseFromString(localized,'text/html');
- [...doc.body.childNodes].forEach(node=>{
-   if(node.nodeType===Node.TEXT_NODE&&!node.textContent.trim())return;
-   if(node.nodeName==='SCRIPT'){
-     const fresh=document.createElement('script');
-     [...node.attributes].forEach(a=>fresh.setAttribute(a.name,a.value));
-     fresh.text=node.textContent||''; target.appendChild(fresh);
-   } else target.appendChild(document.importNode(node,true));
+function installHomeBannerTag(code,zone){
+ // Monetag In-Page Push (Banner) tags must be installed in <head> unchanged.
+ // These tags control their own on-page notification position; they are not inline DIV banners.
+ if(!code)return;
+ const head=document.head;
+ const marker='[data-monetag-home-zone="'+String(zone)+'"]';
+ if(head.querySelector(marker))return;
+ const parsed=new DOMParser().parseFromString(String(code).trim(),'text/html');
+ const sourceScripts=[...parsed.querySelectorAll('script')];
+ if(!sourceScripts.length){console.warn('Homepage Monetag zone '+zone+' has no script tag.');return;}
+ sourceScripts.forEach(src=>{
+   const fresh=document.createElement('script');
+   [...src.attributes].forEach(a=>fresh.setAttribute(a.name,a.value));
+   fresh.dataset.monetagHomeZone=String(zone);
+   fresh.textContent=src.textContent||'';
+   head.appendChild(fresh);
  });
- if(!target.childNodes.length){target.dataset.loaded='';target.style.display='none';}
 }
+
 function installSitewideInPagePush(code){if(!code||document.head.querySelector('[data-monetag-sitewide-push="1"]'))return;const parsed=new DOMParser().parseFromString(code,'text/html');const scripts=[...parsed.querySelectorAll('script')];if(!scripts.length){console.warn('In-Page Push code must contain a script tag.');return;}scripts.forEach(src=>{const fresh=document.createElement('script');[...src.attributes].forEach(a=>fresh.setAttribute(a.name,a.value));fresh.dataset.monetagSitewidePush='1';fresh.text=src.textContent||'';document.head.appendChild(fresh);});}
 function renderCalculatorAds(){monetagRows.forEach((a,i)=>{if(i<4&&a.enabled&&a.code)installMonetagTag(a.code,'calcAd'+(i+1));});}
-async function loadMonetagSettings(){const sb=window.tradeCalcSupabase;if(!sb)return;try{const {data,error}=await sb.from('monetag_settings').select('enabled,max_zones,sitewide_enabled,sitewide_code,zone1_enabled,zone1_code,zone2_enabled,zone2_code,zone3_enabled,zone3_code,zone4_enabled,zone4_code,home_zone1_enabled,home_zone1_code,home_zone2_enabled,home_zone2_code,home_zone3_enabled,home_zone3_code,home_zone4_enabled,home_zone4_code,home_zone5_enabled,home_zone5_code').eq('id',1).maybeSingle();if(error)throw error;if(!data)return;if(data.sitewide_enabled&&data.sitewide_code)installSitewideInPagePush(data.sitewide_code);homeBannerRows=[1,2,3,4,5].map(i=>({enabled:!!data['home_zone'+i+'_enabled'],code:data['home_zone'+i+'_code']||''}));homeBannerRows.forEach((a,i)=>{const el=$('homeBanner'+(i+1));if(a.enabled&&a.code)installHomeBannerTag(a.code,'homeBanner'+(i+1));else if(el){el.replaceChildren();el.style.display='none';el.dataset.loaded='';}});if(!data.enabled)return;const max=Math.min(4,Math.max(1,Number(data.max_zones)||1));monetagRows=[1,2,3,4].slice(0,max).map(i=>({enabled:!!data['zone'+i+'_enabled'],code:data['zone'+i+'_code']||''}));renderCalculatorAds();}catch(e){console.warn('Monetag settings could not be loaded:',e.message);}}
+async function loadMonetagSettings(){const sb=window.tradeCalcSupabase;if(!sb)return;try{const {data,error}=await sb.from('monetag_settings').select('enabled,max_zones,sitewide_enabled,sitewide_code,zone1_enabled,zone1_code,zone2_enabled,zone2_code,zone3_enabled,zone3_code,zone4_enabled,zone4_code,home_zone1_enabled,home_zone1_code,home_zone2_enabled,home_zone2_code,home_zone3_enabled,home_zone3_code,home_zone4_enabled,home_zone4_code,home_zone5_enabled,home_zone5_code').eq('id',1).maybeSingle();if(error)throw error;if(!data)return;if(data.sitewide_enabled&&data.sitewide_code)installSitewideInPagePush(data.sitewide_code);homeBannerRows=[1,2,3,4,5].map(i=>({enabled:!!data['home_zone'+i+'_enabled'],code:data['home_zone'+i+'_code']||''}));homeBannerRows.forEach((a,i)=>{const el=$('homeBanner'+(i+1));if(a.enabled&&a.code)installHomeBannerTag(a.code,i+1);if(el){el.replaceChildren();el.style.display='none';}});if(!data.enabled)return;const max=Math.min(4,Math.max(1,Number(data.max_zones)||1));monetagRows=[1,2,3,4].slice(0,max).map(i=>({enabled:!!data['zone'+i+'_enabled'],code:data['zone'+i+'_code']||''}));renderCalculatorAds();}catch(e){console.warn('Monetag settings could not be loaded:',e.message);}}
 function applyShareMode(){document.body.classList.toggle('shared-tool-mode',sharedToolMode);const side=document.querySelector('.layout .side');if(side)side.setAttribute('aria-hidden',sharedToolMode?'true':'false');}
 function applyTools(){document.querySelectorAll('.toolbtn').forEach(b=>b.classList.toggle('hidden',!settings.tools[b.dataset.tool]));if(!settings.tools[current]&&!sharedToolMode){current=Object.keys(defs).find(k=>settings.tools[k])||'crypto';renderCalc();}applyShareMode();}
 async function loadPublicTools(){const sb=window.tradeCalcSupabase;if(!sb)return;try{const {data,error}=await sb.from('calculator_tools').select('tool_key,enabled').order('sort_order',{ascending:true});if(error)throw error;const visibility={...defaults.tools};(data||[]).forEach(row=>{if(Object.prototype.hasOwnProperty.call(visibility,row.tool_key))visibility[row.tool_key]=!!row.enabled;});settings.tools=visibility;applyTools();}catch(e){console.warn('Calculator visibility could not be loaded from Supabase:',e.message);applyTools();}}
