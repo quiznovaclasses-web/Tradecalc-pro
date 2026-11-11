@@ -308,35 +308,49 @@ function installArticleAds(){
  });
 }
 function articleBodyWithAds(a,body){
- // Existing zones 1–5 retain their positions. Zone 4 (before Introduction)
- // and zone 6 (affiliate footer) are deliberately preserved. New independent
- // zones: 7 immediately after Introduction heading, 8 at article centre,
- // and 9 approximately 8–10 content rows before the centre.
- const active=articleAdRows.map((ad,i)=>({n:i+1,ad})).filter(x=>x.n!==6&&x.ad&&x.ad.enabled&&String(x.ad.code||'').trim());
+ // Keep the confirmed placements untouched: Zone 4 before Introduction,
+ // Zone 7 after the Introduction heading, and Zone 6 in the affiliate footer.
+ // Reposition the three older mid/lower zones so they no longer stack at the end:
+ // Zone 1 = 8–10 content rows before centre, Zone 2 = centre,
+ // Zone 3 = lower article (its existing lower-page role).
+ const active=articleAdRows.map((ad,i)=>({n:i+1,ad})).filter(x=>x.n!==4&&x.n!==6&&x.n!==7&&x.ad&&x.ad.enabled&&String(x.ad.code||'').trim());
  if(!active.length)return String(body||'');
  const wrapper=document.createElement('div');wrapper.innerHTML=String(body||'');
  const norm=e=>(e?.textContent||'').replace(/\s+/g,' ').trim().toLowerCase();
  const headings=Array.from(wrapper.querySelectorAll('h1,h2,h3,h4'));
  const intro=headings.find(h=>/introduction|overview|getting started|परिचय/.test(norm(h)));
+ // Count readable content rows, not nested list items or nested paragraphs,
+ // so each target is a genuinely separate location in the article flow.
  const blocks=Array.from(wrapper.querySelectorAll('p,blockquote,pre,table,figure,ul,ol'))
-  .filter(el=>norm(el).length>20&&!el.closest('script,style')&&!((el.matches('ul,ol'))&&el.parentElement?.closest('ul,ol')));
- const last=Math.max(0,blocks.length-1), clamp=i=>Math.min(last,Math.max(0,i));
- const center=clamp(Math.floor(last/2));
- const positions={1:clamp(8),2:clamp(18),3:clamp(Math.round(last*.76)),5:clamp(4),8:center,9:clamp(center-9)};
- // Keep all active placements separate even on shorter articles.
+  .filter(el=>norm(el).length>20&&!el.closest('script,style')&&!((el.matches('ul,ol'))&&el.parentElement?.closest('ul,ol')))
+  .filter(el=>!Array.from(el.children).some(child=>child.matches('p,blockquote,pre,table,figure,ul,ol')));
+ const last=Math.max(0,blocks.length-1),clamp=i=>Math.min(last,Math.max(0,i));
+ const centre=Math.floor(last/2);
+ const positions={
+  1:clamp(centre-9),
+  2:clamp(centre),
+  3:clamp(Math.round(last*.76)),
+  5:clamp(4),
+  8:clamp(centre),
+  9:clamp(centre-9)
+ };
+ // Resolve collisions deterministically by moving the later zone to the next
+ // available content row; never push several ads to the final paragraph.
  const used=new Set();
- [5,9,1,2,8,3].forEach(n=>{
+ [1,2,3,5,9,8].forEach(n=>{
   let pos=positions[n];
   while(used.has(pos)&&pos<last)pos++;
   while(used.has(pos)&&pos>0)pos--;
   positions[n]=pos;used.add(pos);
  });
  const insertions=active.map(x=>{
-  if(x.n===4)return {n:x.n,anchor:intro||wrapper.firstElementChild,where:'before'};
-  if(x.n===7)return {n:x.n,anchor:intro,where:'after'};
-  return {n:x.n,anchor:blocks[positions[x.n]]||null,where:'after'};
- });
- // Descending DOM order prevents earlier insertions from changing later anchors.
+  if(x.n===1||x.n===2||x.n===3||x.n===5||x.n===8||x.n===9)return {n:x.n,anchor:blocks[positions[x.n]]||null,where:'after'};
+  return null;
+ }).filter(Boolean);
+ // Zones 4 and 7 are mounted at their fixed headings separately; Zone 6 is
+ // mounted by articleAffiliateFooter().
+ if(articleAdRows[3]?.enabled&&String(articleAdRows[3].code||'').trim())insertions.push({n:4,anchor:intro||wrapper.firstElementChild,where:'before'});
+ if(articleAdRows[6]?.enabled&&String(articleAdRows[6].code||'').trim()&&intro)insertions.push({n:7,anchor:intro,where:'after'});
  insertions.sort((a,b)=>{
   if(!a.anchor)return 1;if(!b.anchor)return -1;if(a.anchor===b.anchor)return b.n-a.n;
   return (a.anchor.compareDocumentPosition(b.anchor)&Node.DOCUMENT_POSITION_FOLLOWING)?1:-1;
