@@ -291,8 +291,9 @@ function articleBodyWithAffiliates(a,body){
 function articleAffiliateFooter(a){
  const ids=Array.isArray(a.partner_offer_ids)?a.partner_offer_ids.map(String):[];
  const selected=articlePartnerRows.filter(o=>ids.includes(String(o.id))&&articlePartnerAllowed(o));
- if(!selected.length)return '';
- return `<section class="article-inline-box article-partners article-partners-collection article-partners-bottom"><div class="eyebrow">Recommended partners</div><h2>Explore Recommended Platforms</h2><div class="article-partner-list">${selected.map(articleOfferCard).join('')}</div><p class="note">Affiliate disclosure: we may earn a commission if you use these links, at no extra cost to you.</p></section>`;
+ const footerAd=articleAdRows[5]&&articleAdRows[5].enabled&&String(articleAdRows[5].code||'').trim()?'<div class="article-inline-ad article-affiliate-ad" id="articleAd6" aria-label="Advertisement"></div>':'';
+ if(!selected.length)return footerAd;
+ return `<section class="article-inline-box article-partners article-partners-collection article-partners-bottom"><div class="eyebrow">Recommended partners</div><h2>Explore Recommended Platforms</h2><div class="article-partner-list">${selected.map(articleOfferCard).join('')}</div><p class="note">Affiliate disclosure: we may earn a commission if you use these links, at no extra cost to you.</p>${footerAd}</section>`;
 }
 function articlePartnerAllowed(o){const cc=(visitorCountry||'').toUpperCase(),allow=(Array.isArray(o.allowed_countries)?o.allowed_countries:[]).map(x=>String(x).toUpperCase()),block=(Array.isArray(o.blocked_countries)?o.blocked_countries:[]).map(x=>String(x).toUpperCase());if(!cc)return allow.length===0&&block.length===0;if(block.includes(cc))return false;return !allow.length||allow.includes(cc)}
 function articleAdMarkup(){return articleAdRows.map((ad,i)=>ad&&ad.enabled&&ad.code?`<div class="article-inline-ad" id="articleAd${i+1}" aria-label="Advertisement"></div>`:'').join('')}
@@ -306,54 +307,33 @@ function installArticleAds(){
  });
 }
 function articleBodyWithAds(a,body){
- const active=articleAdRows.map((ad,i)=>({n:i+1,ad})).filter(x=>x.ad&&x.ad.enabled&&String(x.ad.code||'').trim());
+ const active=articleAdRows.map((ad,i)=>({n:i+1,ad})).filter(x=>x.n!==6&&x.ad&&x.ad.enabled&&String(x.ad.code||'').trim());
  if(!active.length)return body;
  const wrapper=document.createElement('div');wrapper.innerHTML=String(body||'');
  const norm=e=>(e?.textContent||'').replace(/\s+/g,' ').trim().toLowerCase();
  const headings=Array.from(wrapper.querySelectorAll('h2,h3,h4'));
  const intro=headings.find(h=>/introduction|overview|getting started|परिचय/.test(norm(h)));
- const conclusion=headings.find(h=>/conclusion|final thoughts|summary|wrapping up|निष्कर्ष/.test(norm(h)));
- // Use the real paragraph/list blocks in DOM order. Do not collapse nested
- // paragraphs into their parent wrapper: that was causing several ads to stack
- // together immediately below the Introduction heading.
- let blocks=Array.from(wrapper.querySelectorAll('p,li,blockquote,pre,table,figure'))
-   .filter(el=>norm(el).length>20 && !el.closest('script,style'));
- if(blocks.length<4){
-   const fallback=Array.from(wrapper.children).filter(el=>norm(el).length>20 && !['SCRIPT','STYLE'].includes(el.tagName));
-   if(fallback.length>blocks.length)blocks=fallback;
- }
+ // Paragraph-level anchors keep placements separate and prevent all ad tags
+ // from collecting under the Introduction heading.
+ const blocks=Array.from(wrapper.querySelectorAll('p,li,blockquote,pre,table,figure'))
+   .filter(el=>norm(el).length>20&&!el.closest('script,style'));
  const at=(index)=>blocks[Math.min(blocks.length-1,Math.max(0,index))]||null;
- const fraction=(f)=>at(Math.round((Math.max(1,blocks.length)-1)*f));
- const afterConclusion=()=>{
-   if(!conclusion)return null;
-   let node=conclusion;
-   while(node.nextElementSibling&&!/^H[2-4]$/.test(node.nextElementSibling.tagName))node=node.nextElementSibling;
-   return node;
- };
- // Each zone gets a distinct paragraph anchor whenever the article has enough
- // content. This spreads ads through the article instead of clustering them.
+ const fraction=f=>at(Math.round((Math.max(1,blocks.length)-1)*f));
  const targets={
-   1:null,
-   2:blocks.length>=10?at(8):fraction(.20),
-   3:blocks.length>=20?at(18):fraction(.42),
-   4:fraction(.58),
-   5:fraction(.76),
-   6:afterConclusion()||fraction(.90)
+   1:blocks.length>=10?at(8):fraction(.28),
+   2:blocks.length>=20?at(18):fraction(.52),
+   3:fraction(.72),
+   4:intro,
+   5:blocks.length>=5?at(4):fraction(.12)
  };
- const docOrder=(a,b)=>{
-   if(!a)return -1;if(!b)return 1;if(a===b)return 0;
-   return a.compareDocumentPosition(b)&Node.DOCUMENT_POSITION_FOLLOWING?-1:1;
- };
- // Insert later anchors first so earlier insertions cannot shift their positions.
+ const docOrder=(a,b)=>{if(!a)return -1;if(!b)return 1;if(a===b)return 0;return a.compareDocumentPosition(b)&Node.DOCUMENT_POSITION_FOLLOWING?-1:1;};
  const ordered=active.map(x=>({n:x.n,anchor:targets[x.n]})).sort((a,b)=>{
-   if(a.n===1)return 1;if(b.n===1)return -1;
-   const order=docOrder(a.anchor,b.anchor);
-   return order===0?b.n-a.n:-order;
+   const order=docOrder(a.anchor,b.anchor);return order===0?b.n-a.n:-order;
  });
  ordered.forEach(item=>{
    const el=document.createElement('div');el.className='article-inline-ad';el.id='articleAd'+item.n;el.setAttribute('aria-label','Advertisement');
-   if(item.n===1){const first=intro||wrapper.firstElementChild;if(first&&first.parentNode)first.parentNode.insertBefore(el,first);else wrapper.insertBefore(el,wrapper.firstChild);return;}
    const anchor=item.anchor;
+   if(item.n===4){const first=intro||wrapper.firstElementChild;if(first&&first.parentNode)first.parentNode.insertBefore(el,first);else wrapper.insertBefore(el,wrapper.firstChild);return;}
    if(anchor&&anchor.parentNode)anchor.insertAdjacentElement('afterend',el);else wrapper.appendChild(el);
  });
  return wrapper.innerHTML;
