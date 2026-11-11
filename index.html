@@ -298,43 +298,60 @@ function articleAffiliateFooter(a){
 function articlePartnerAllowed(o){const cc=(visitorCountry||'').toUpperCase(),allow=(Array.isArray(o.allowed_countries)?o.allowed_countries:[]).map(x=>String(x).toUpperCase()),block=(Array.isArray(o.blocked_countries)?o.blocked_countries:[]).map(x=>String(x).toUpperCase());if(!cc)return allow.length===0&&block.length===0;if(block.includes(cc))return false;return !allow.length||allow.includes(cc)}
 function articleAdMarkup(){return articleAdRows.map((ad,i)=>ad&&ad.enabled&&ad.code?`<div class="article-inline-ad" id="articleAd${i+1}" aria-label="Advertisement"></div>`:'').join('')}
 function installArticleAds(){
- // Install each active article placement independently so one malformed/network
- // response cannot prevent later placements from being mounted.
+ // Mount each configured zone independently and report missing containers or
+ // missing dashboard settings clearly in the browser console.
  articleAdRows.forEach((ad,i)=>{
-  if(!ad||!ad.enabled||!String(ad.code||'').trim())return;
-  try{installMonetagTag(ad.code,'articleAd'+(i+1));}
-  catch(err){console.warn('Article ad placement '+(i+1)+' could not be mounted:',err);}
+  const zone=i+1;if(!ad||!ad.enabled||!String(ad.code||'').trim()){
+   console.info('Article ad zone '+zone+' is disabled or has no saved code.');return;
+  }
+  const slot=$('articleAd'+zone);
+  if(!slot){console.warn('Article ad zone '+zone+' is enabled in Dashboard but its placement container was not created.');return;}
+  try{installMonetagTag(ad.code,'articleAd'+zone);}
+  catch(err){console.warn('Article ad placement '+zone+' could not be mounted:',err);}
  });
 }
 function articleBodyWithAds(a,body){
+ // Keep all six placements independent. Zones 1–3 are deliberately anchored
+ // to separate paragraph positions; zones 4–5 are near the introduction;
+ // zone 6 is mounted by articleAffiliateFooter().
  const active=articleAdRows.map((ad,i)=>({n:i+1,ad})).filter(x=>x.n!==6&&x.ad&&x.ad.enabled&&String(x.ad.code||'').trim());
- if(!active.length)return body;
+ if(!active.length)return String(body||'');
  const wrapper=document.createElement('div');wrapper.innerHTML=String(body||'');
  const norm=e=>(e?.textContent||'').replace(/\s+/g,' ').trim().toLowerCase();
- const headings=Array.from(wrapper.querySelectorAll('h2,h3,h4'));
+ const headings=Array.from(wrapper.querySelectorAll('h1,h2,h3,h4'));
  const intro=headings.find(h=>/introduction|overview|getting started|परिचय/.test(norm(h)));
- // Paragraph-level anchors keep placements separate and prevent all ad tags
- // from collecting under the Introduction heading.
- const blocks=Array.from(wrapper.querySelectorAll('p,li,blockquote,pre,table,figure'))
-   .filter(el=>norm(el).length>20&&!el.closest('script,style'));
- const at=(index)=>blocks[Math.min(blocks.length-1,Math.max(0,index))]||null;
- const fraction=f=>at(Math.round((Math.max(1,blocks.length)-1)*f));
- const targets={
-   1:blocks.length>=10?at(8):fraction(.28),
-   2:blocks.length>=20?at(18):fraction(.52),
-   3:fraction(.72),
-   4:intro,
-   5:blocks.length>=5?at(4):fraction(.12)
+ // Count readable content blocks only. Exclude nested list items when a list
+ // itself is already counted, so ad anchors are stable and don't split lists.
+ const blocks=Array.from(wrapper.querySelectorAll('p,blockquote,pre,table,figure,ul,ol'))
+   .filter(el=>norm(el).length>20&&!el.closest('script,style')&&!((el.matches('ul,ol'))&&el.parentElement?.closest('ul,ol')));
+ const last=Math.max(0,blocks.length-1);
+ const clamp=i=>Math.min(last,Math.max(0,i));
+ const positions={
+   1:clamp(8),
+   2:clamp(18),
+   3:clamp(Math.round(last*.76)),
+   5:clamp(4)
  };
- const docOrder=(a,b)=>{if(!a)return -1;if(!b)return 1;if(a===b)return 0;return a.compareDocumentPosition(b)&Node.DOCUMENT_POSITION_FOLLOWING?-1:1;};
- const ordered=active.map(x=>({n:x.n,anchor:targets[x.n]})).sort((a,b)=>{
-   const order=docOrder(a.anchor,b.anchor);return order===0?b.n-a.n:-order;
+ // For shorter articles, move colliding placements to the next available
+ // content block. This prevents zones 1, 2, 3 and 5 from stacking together.
+ const used=new Set();
+ [5,1,2,3].forEach(n=>{
+   let pos=positions[n];
+   while(used.has(pos)&&pos<last)pos++;
+   while(used.has(pos)&&pos>0)pos--;
+   positions[n]=pos;used.add(pos);
  });
- ordered.forEach(item=>{
+ const insertions=active.map(x=>({n:x.n,anchor:x.n===4?(intro||wrapper.firstElementChild):blocks[positions[x.n]]||null}));
+ // Process anchors from the end of the document toward the beginning so
+ // earlier insertions cannot disturb later anchors.
+ const order=(a,b)=>{if(!a)return -1;if(!b)return 1;if(a===b)return 0;return a.compareDocumentPosition(b)&Node.DOCUMENT_POSITION_FOLLOWING?-1:1;};
+ insertions.sort((a,b)=>{const c=order(a.anchor,b.anchor);return c===0?b.n-a.n:-c;});
+ insertions.forEach(item=>{
    const el=document.createElement('div');el.className='article-inline-ad';el.id='articleAd'+item.n;el.setAttribute('aria-label','Advertisement');
    const anchor=item.anchor;
-   if(item.n===4){const first=intro||wrapper.firstElementChild;if(first&&first.parentNode)first.parentNode.insertBefore(el,first);else wrapper.insertBefore(el,wrapper.firstChild);return;}
-   if(anchor&&anchor.parentNode)anchor.insertAdjacentElement('afterend',el);else wrapper.appendChild(el);
+   if(item.n===4){if(anchor?.parentNode)anchor.parentNode.insertBefore(el,anchor);else wrapper.insertBefore(el,wrapper.firstChild);}
+   else if(anchor?.parentNode)anchor.insertAdjacentElement('afterend',el);
+   else wrapper.appendChild(el);
  });
  return wrapper.innerHTML;
 }
