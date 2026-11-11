@@ -308,45 +308,57 @@ function installArticleAds(){
  });
 }
 function articleBodyWithAds(a,body){
- // Keep the proven top (Zone 4) and affiliate-footer (Zone 6) placements.
- // Spread the three in-body placements evenly across readable article content.
+ // V41: distribute the three in-body zones by cumulative readable text length,
+ // not by raw DOM node index. Rich-text editors can produce nested wrappers and
+ // uneven paragraph sizes; a simple 25/50/75 node index can bunch ads together.
  const wrapper=document.createElement('div');wrapper.innerHTML=String(body||'');
  const norm=e=>(e?.textContent||'').replace(/\s+/g,' ').trim();
+ const isOn=n=>!!(articleAdRows[n-1]?.enabled&&String(articleAdRows[n-1]?.code||'').trim());
+ const addSlot=n=>{const el=document.createElement('div');el.className='article-inline-ad article-inline-ad-spaced';el.id='articleAd'+n;el.setAttribute('aria-label','Advertisement');el.dataset.articleZone=String(n);return el;};
+ const insertBefore=(n,anchor)=>{if(!isOn(n)||!anchor||wrapper.querySelector('#articleAd'+n))return;anchor.parentNode?.insertBefore(addSlot(n),anchor);};
+ const insertAfter=(n,anchor)=>{if(!isOn(n)||!anchor||wrapper.querySelector('#articleAd'+n))return;anchor.insertAdjacentElement('afterend',addSlot(n));};
+ // Zone 4 remains immediately before the Introduction heading.
  const headings=Array.from(wrapper.querySelectorAll('h1,h2,h3,h4'));
  const intro=headings.find(h=>/introduction|overview|getting started|परिचय/i.test(norm(h)));
- const blocks=Array.from(wrapper.querySelectorAll('p,blockquote,pre,table,figure,ul,ol'))
-  .filter(el=>norm(el).length>20&&!el.closest('script,style'))
-  .filter(el=>!((el.matches('ul,ol'))&&el.parentElement?.closest('ul,ol')))
-  .filter(el=>!Array.from(el.children).some(child=>child.matches('p,blockquote,pre,table,figure,ul,ol')));
- const isOn=n=>articleAdRows[n-1]?.enabled&&String(articleAdRows[n-1]?.code||'').trim();
- const insert=(n,anchor,where='after')=>{
-  if(!isOn(n)||!anchor||wrapper.querySelector('#articleAd'+n))return;
-  const el=document.createElement('div');el.className='article-inline-ad';el.id='articleAd'+n;el.setAttribute('aria-label','Advertisement');
-  if(where==='before')anchor.parentNode?.insertBefore(el,anchor);else anchor.insertAdjacentElement('afterend',el);
- };
- // Zone 4: immediately before Introduction (unchanged).
- if(isOn(4))insert(4,intro||wrapper.firstElementChild,'before');
- // Zones 5, 8 and 9: target approximately 25%, 50% and 75% of the
- // article's readable content blocks, instead of anchoring all three to
- // headings near the end. This keeps the ads separated on long articles.
- const spreadZones=[{zone:5,fraction:.25},{zone:8,fraction:.50},{zone:9,fraction:.75}]
-  .filter(x=>isOn(x.zone));
- const count=blocks.length;
- if(count){
-  const used=new Set();
-  spreadZones.forEach(({zone,fraction},i)=>{
-   let idx=Math.round((count-1)*fraction);
-   // If a short article maps multiple zones to one block, move to the
-   // nearest unused block so separate zones never stack on one anchor.
-   if(used.has(idx)){
-    for(let d=1;d<count;d++){
-     const candidates=[idx-d,idx+d].filter(v=>v>=0&&v<count&&!used.has(v));
-     if(candidates.length){idx=candidates[0];break;}
-    }
-   }
-   used.add(idx);insert(zone,blocks[idx],'after');
+ if(isOn(4))insertBefore(4,intro||wrapper.firstElementChild);
+ // Build a reading-order list of meaningful leaf blocks. Include headings as
+ // boundaries, but exclude parent containers that merely wrap other blocks.
+ const candidates=Array.from(wrapper.querySelectorAll('h1,h2,h3,h4,p,blockquote,pre,table,figure,ul,ol'))
+  .filter(el=>norm(el).length>0)
+  .filter(el=>!Array.from(el.children).some(ch=>ch.matches('h1,h2,h3,h4,p,blockquote,pre,table,figure,ul,ol')))
+  .filter(el=>!el.closest('script,style'));
+ // Prefer text-bearing paragraph/list/table blocks for proportional weighting.
+ let blocks=candidates.filter(el=>!el.matches('h1,h2,h3,h4')&&norm(el).length>12);
+ if(blocks.length<3)blocks=candidates.filter(el=>norm(el).length>0);
+ const zones=[{zone:5,fraction:.25},{zone:8,fraction:.50},{zone:9,fraction:.75}].filter(x=>isOn(x.zone));
+ if(blocks.length&&zones.length){
+  const weights=blocks.map(el=>Math.max(1,norm(el).length));
+  const total=weights.reduce((a,b)=>a+b,0);
+  const cumulative=[];let sum=0;weights.forEach(w=>{sum+=w;cumulative.push(sum);});
+  const chosen=[];
+  zones.forEach(({zone,fraction})=>{
+   const target=total*fraction;
+   let idx=cumulative.findIndex(v=>v>=target);if(idx<0)idx=blocks.length-1;
+   chosen.push({zone,idx,fraction});
   });
+  // Guarantee separate anchors whenever the article has enough content blocks.
+  const minGap=blocks.length>=9?Math.max(2,Math.floor(blocks.length/10)):1;
+  for(let i=1;i<chosen.length;i++){
+   if(chosen[i].idx<=chosen[i-1].idx){chosen[i].idx=Math.min(blocks.length-1,chosen[i-1].idx+minGap);}
+  }
+  for(let i=chosen.length-2;i>=0;i--){
+   if(chosen[i].idx>=chosen[i+1].idx){chosen[i].idx=Math.max(0,chosen[i+1].idx-minGap);}
+  }
+  chosen.forEach(({zone,idx})=>insertAfter(zone,blocks[idx]));
  }
+ // Fallback for malformed/single-wrapper article content: split at available
+ // top-level elements rather than silently appending all remaining ads at end.
+ zones.forEach(({zone},i)=>{
+  if(!isOn(zone)||wrapper.querySelector('#articleAd'+zone))return;
+  const children=Array.from(wrapper.children).filter(el=>!el.id?.startsWith('articleAd'));
+  if(children.length){const at=Math.min(children.length-1,Math.round((children.length-1)*(i+1)/(zones.length+1)));insertAfter(zone,children[at]);}
+  else wrapper.appendChild(addSlot(zone));
+ });
  return wrapper.innerHTML;
 }
 async function loadArticleMonetization(){const sb=window.tradeCalcSupabase;if(!sb)return;try{const [adRes,partnerRes]=await Promise.all([sb.from('article_ad_settings').select('*').eq('id',1).maybeSingle(),sb.from('article_partner_offers').select('*').eq('is_active',true).order('sort_order',{ascending:true})]);if(adRes.error)throw adRes.error;if(partnerRes.error)throw partnerRes.error;articleAdRows=adRes.data&&adRes.data.enabled?Array.from({length:9},(_,i)=>i+1).map(n=>({enabled:[4,5,6,8,9].includes(n)&&!!adRes.data['zone'+n+'_enabled'],code:adRes.data['zone'+n+'_code']||''})):[];articlePartnerRows=(partnerRes.data||[]).map(o=>({...o,url:o.affiliate_url}));}catch(e){console.warn('Article-only monetization could not load:',e.message);articleAdRows=[];articlePartnerRows=[];}}

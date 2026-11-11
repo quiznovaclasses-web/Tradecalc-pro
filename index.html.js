@@ -1,0 +1,338 @@
+if(new URLSearchParams(location.search).has("article")){document.documentElement.classList.add("article-route");}
+;
+
+
+(()=>{
+const $=id=>document.getElementById(id); const money=n=>Number.isFinite(n)?n.toLocaleString(undefined,{maximumFractionDigits:4}):'—';
+const defaults={name:'TradeCalc Pro',description:'Free crypto and forex trading calculators.',ads:{top:false,inline:false,pop:false,limit:2,code:''},seo:{title:'TradeCalc Pro — Crypto & Forex Calculators',description:'Free crypto and forex trading calculators.'},offers:[],tools:{crypto:true,forex:true,position:true,leverage:true,risk:true,compound:true,dca:true,breakeven:true,fee:true,stockpnl:true,stockavg:true,dividend:true,sip:true,cagr:true,brokerage:true,pe:true,eps:true,roe:true,portfolio:true,...Object.fromEntries((window.TCP_CALCULATOR_CATALOG?.entries||[]).map(x=>[x.key,true]))}};
+let settings={...defaults,...JSON.parse(localStorage.getItem('tcp_settings')||'{}')}; settings.ads={...defaults.ads,...(settings.ads||{})};settings.seo={...defaults.seo,...(settings.seo||{})};settings.tools={...defaults.tools,...(settings.tools||{})};
+const requestedTool=new URLSearchParams(location.search).get('tool');
+let current=requestedTool||'crypto';
+let sharedToolMode=!!requestedTool;
+let visitorCountry=''; let countryReady=false; let homeBannerRows=[]; let affiliateRows=[];let articleRows=[];let articlePage=0;const ARTICLE_PAGE_SIZE=9; let monetagRows=[];let articleAdRows=[];let articlePartnerRows=[];
+const defs={
+crypto:{title:'Crypto Profit & Loss',note:'Estimate trade P&L before fees. Add buy and sell fees as percentages.',fields:[['buy','Buy price (USD)','number',0.0],['sell','Sell price (USD)','number',0.0],['qty','Quantity (coin)','number',1],['fee','Total fees (%)','number',0.2]],calc:v=>{let gross=(v.sell-v.buy)*v.qty,fees=(v.buy+v.sell)*v.qty*v.fee/100,net=gross-fees;return ['Estimated net P&L',net,'Gross P&L: '+money(gross)+' USD · Estimated fees: '+money(fees)+' USD']}},
+forex:{title:'Forex Pip & P&L Estimate',note:'Simplified estimate for standard lot conventions. Confirm pair-specific pip size and account currency with your broker.',fields:[['lots','Lot size (standard lots)','number',1],['pips','Pips gained / lost','number',10],['pipvalue','Pip value per standard lot (USD)','number',10],['spread','Commission & spread cost (USD)','number',0]],calc:v=>{let gross=v.lots*v.pips*v.pipvalue,net=gross-v.spread;return ['Estimated P&L',net,'Before costs: '+money(gross)+' USD · Costs: '+money(v.spread)+' USD']}},
+position:{title:'Position Size Calculator',note:'Risk amount is based on account balance and risk percentage. Stop distance is entered in price units.',fields:[['balance','Account balance (USD)','number',1000],['risk','Risk per trade (%)','number',1],['entry','Entry price','number',100],['stop','Stop-loss price','number',95]],calc:v=>{let risk=v.balance*v.risk/100,dist=Math.abs(v.entry-v.stop),size=dist?risk/dist:NaN;return ['Estimated position size',size,'Risk budget: '+money(risk)+' USD · Stop distance: '+money(dist)]}},
+leverage:{title:'Leverage & Margin Calculator',note:'Simplified initial margin estimate; excludes maintenance margin, fees and liquidation rules.',fields:[['capital','Your margin / capital (USD)','number',100],['lev','Leverage (e.g. 10)','number',10],['price','Asset price (USD)','number',50000]],calc:v=>{let exposure=v.capital*v.lev,units=v.price?exposure/v.price:NaN;return ['Estimated market exposure',exposure,'Approximate asset quantity: '+money(units)+' · Initial margin: '+money(v.capital)+' USD']}},
+risk:{title:'Risk / Reward Calculator',note:'Compares potential reward with potential loss based on entry, stop and target prices.',fields:[['entry','Entry price','number',100],['stop','Stop-loss price','number',95],['target','Take-profit price','number',115],['qty','Position quantity','number',1]],calc:v=>{let risk=Math.abs(v.entry-v.stop)*v.qty,reward=Math.abs(v.target-v.entry)*v.qty,rr=risk?reward/risk:NaN;return ['Risk / Reward ratio',rr,'Potential risk: '+money(risk)+' · Potential reward: '+money(reward)]}},
+compound:{title:'Compound Growth Calculator',note:'Illustrative compounding only. Real returns are not fixed or guaranteed.',fields:[['initial','Starting amount (USD)','number',1000],['rate','Return per period (%)','number',2],['periods','Number of periods','number',12],['contrib','Extra contribution each period (USD)','number',0]],calc:v=>{let total=v.initial;for(let i=0;i<Math.min(1200,Math.max(0,Math.floor(v.periods)));i++)total=total*(1+v.rate/100)+v.contrib;return ['Estimated ending value',total,'Starting amount: '+money(v.initial)+' USD · Periods: '+Math.floor(v.periods)]}},
+dca:{title:'DCA Average Entry Calculator',note:'Calculates the weighted average entry price across two or more purchases represented by two purchase lots.',fields:[['amount1','First investment amount (USD)','number',100],['price1','First buy price (USD)','number',50000],['amount2','Second investment amount (USD)','number',100],['price2','Second buy price (USD)','number',40000]],calc:v=>{let units=(v.price1>0?v.amount1/v.price1:0)+(v.price2>0?v.amount2/v.price2:0),total=v.amount1+v.amount2,avg=units?total/units:NaN;return ['Weighted average entry price',avg,'Total invested: '+money(total)+' USD · Total asset quantity: '+(Number.isFinite(units)?units.toFixed(8):'—')] }},
+breakeven:{title:'Crypto Break-even Price Calculator',note:'Estimates the sell price needed to recover buy cost plus percentage trading fees on both sides.',fields:[['buyPrice','Buy price per coin (USD)','number',50000],['quantity','Quantity (coin)','number',0.01],['buyFee','Buy fee (%)','number',0.1],['sellFee','Sell fee (%)','number',0.1]],calc:v=>{let cost=v.buyPrice*v.quantity*(1+v.buyFee/100),den=v.quantity*(1-v.sellFee/100),price=den>0?cost/den:NaN;return ['Break-even sell price per coin',price,'Estimated total cost incl. buy fee: '+money(cost)+' USD · Excludes funding, spread and slippage'] }},
+fee:{title:'Trading Fee Calculator',note:'Estimates maker/taker fees from trade notional. Enter the fee rate shown by your exchange or broker.',fields:[['price','Asset price (USD)','number',50000],['quantity','Quantity traded','number',0.01],['feeRate','Fee rate (%)','number',0.1],['trades','Number of sides / trades','number',2]],calc:v=>{let notional=v.price*v.quantity,fee=notional*v.feeRate/100*Math.floor(v.trades);return ['Estimated total trading fees',fee,'Notional per side: '+money(notional)+' USD · Trade sides counted: '+Math.floor(v.trades)] }},
+stockpnl:{title:'Stock Profit & Loss Calculator',note:'Estimate stock trade profit after percentage brokerage/fees.',fields:[['buy','Buy price per share','number',100],['sell','Sell price per share','number',110],['qty','Number of shares','number',10],['fee','Total charges (%)','number',0.2]],calc:v=>{let gross=(v.sell-v.buy)*v.qty,charges=(v.buy+v.sell)*v.qty*v.fee/100;return ['Estimated net profit / loss',gross-charges,'Gross P&L: '+money(gross)+' · Estimated charges: '+money(charges)]}},
+stockavg:{title:'Stock Average Price Calculator',note:'Calculate weighted average purchase price across two buys.',fields:[['qty1','First buy quantity','number',10],['price1','First buy price','number',100],['qty2','Second buy quantity','number',10],['price2','Second buy price','number',90]],calc:v=>{let q=v.qty1+v.qty2,avg=q?(v.qty1*v.price1+v.qty2*v.price2)/q:NaN;return ['Average purchase price',avg,'Total shares: '+money(q)+' · Total invested: '+money(v.qty1*v.price1+v.qty2*v.price2)]}},
+dividend:{title:'Dividend Income & Yield Calculator',note:'Estimate annual dividend income and yield on your investment.',fields:[['shares','Shares held','number',100],['dividend','Annual dividend per share','number',2],['price','Current share price','number',100]],calc:v=>{let income=v.shares*v.dividend,yieldPct=v.price?income/(v.shares*v.price)*100:NaN;return ['Estimated annual dividend income',income,'Dividend yield: '+money(yieldPct)+'% · Before taxes'] }},
+sip:{title:'Stock SIP Calculator',note:'Monthly investment future value estimate using a fixed assumed monthly return.',fields:[['monthly','Monthly investment','number',5000],['rate','Expected annual return (%)','number',12],['years','Investment period (years)','number',10]],calc:v=>{let n=Math.floor(v.years*12),r=Math.pow(1+v.rate/100,1/12)-1,fv=r? v.monthly*((Math.pow(1+r,n)-1)/r)*(1+r):v.monthly*n;return ['Estimated SIP future value',fv,'Invested amount: '+money(v.monthly*n)+' · Estimated gain: '+money(fv-v.monthly*n)]}},
+cagr:{title:'Stock CAGR Calculator',note:'Calculate compound annual growth rate between two values.',fields:[['initial','Starting value','number',10000],['final','Ending value','number',18000],['years','Years invested','number',5]],calc:v=>{let c=v.initial>0&&v.years>0? (Math.pow(v.final/v.initial,1/v.years)-1)*100:NaN;return ['Compound annual growth rate',c,'Total change: '+money(v.initial?((v.final/v.initial)-1)*100:NaN)+'%'] }},
+brokerage:{title:'Stock Brokerage & Charges Calculator',note:'Estimate transaction charges using your own combined charge rate.',fields:[['buy','Buy price','number',100],['sell','Sell price','number',110],['qty','Shares traded','number',10],['rate','Combined charges (%)','number',0.2]],calc:v=>{let turnover=(v.buy+v.sell)*v.qty,charges=turnover*v.rate/100;return ['Estimated total charges',charges,'Buy + sell turnover: '+money(turnover)+' · Net P&L after charges: '+money((v.sell-v.buy)*v.qty-charges)]}},
+pe:{title:'P/E Ratio Calculator',note:'Price-to-earnings ratio based on share price and earnings per share.',fields:[['price','Share price','number',250],['eps','Earnings per share (EPS)','number',10]],calc:v=>{return ['Price / Earnings ratio',v.eps>0?v.price/v.eps:NaN,'Share price divided by EPS'] }},
+eps:{title:'Earnings Per Share (EPS) Calculator',note:'Basic EPS estimate using net profit after preference dividends.',fields:[['profit','Net profit','number',1000000],['pref','Preference dividends','number',0],['shares','Weighted average shares','number',100000]],calc:v=>{return ['Earnings per share',v.shares>0?(v.profit-v.pref)/v.shares:NaN,'Net profit less preference dividends, divided by weighted average shares'] }},
+roe:{title:'Return on Equity (ROE) Calculator',note:'Estimate return on equity from net income and average shareholder equity.',fields:[['income','Net income','number',100000],['equity','Average shareholder equity','number',500000]],calc:v=>{return ['Return on equity',v.equity>0?(v.income/v.equity)*100:NaN,'ROE percentage'] }},
+portfolio:{title:'Portfolio Allocation Calculator',note:'Calculate the value and portfolio weight of one stock holding.',fields:[['shares','Shares held','number',20],['price','Current share price','number',150],['portfolio','Total portfolio value','number',10000]],calc:v=>{let value=v.shares*v.price;return ['Holding market value',value,'Portfolio allocation: '+money(v.portfolio>0?value/v.portfolio*100:NaN)+'%'] }}
+};
+const extraCatalog=(window.TCP_CALCULATOR_CATALOG?.entries||[]);
+extraCatalog.forEach(item=>{defs[item.key]={title:item.title,note:`${item.group} calculator. Runs entirely in your browser; no API key or paid data required. Check assumptions and market specifications before relying on results.`,fields:item.fields.map(f=>[f[0],f[1],'number',f[2]]),calc:v=>window.TCP_CALCULATOR_CATALOG.calculate(item.key,v)};});
+function renderExtraToolButtons(){const box=$('extraToolButtons');if(box)box.innerHTML='';}
+function renderCalculatorDirectory(){const groups=new Map();const legacyGroups={'crypto':'Crypto & Forex','forex':'Crypto & Forex','position':'Risk Management','leverage':'Risk Management','risk':'Risk Management','compound':'Investment & Returns','dca':'Crypto & Forex','breakeven':'Trade Planning','fee':'Fees & Costs','stockpnl':'Stocks & Investing','stockavg':'Stocks & Investing','dividend':'Stocks & Investing','sip':'Investment & Returns','cagr':'Investment & Returns','brokerage':'Stocks & Investing','pe':'Stocks & Investing','eps':'Stocks & Investing','roe':'Stocks & Investing','portfolio':'Portfolio'};
+Object.entries(defs).forEach(([key,d])=>{const meta=extraCatalog.find(x=>x.key===key);const group=meta?.group||legacyGroups[key]||'Core Calculators';if(!groups.has(group))groups.set(group,[]);groups.get(group).push({key,title:d.title});});
+const box=$('directoryGroups');box.innerHTML=[...groups.entries()].map(([group,items])=>`<section class="directory-group" data-directory-group="${esc(group)}"><h4><span>${esc(group)}</span><span style="color:var(--muted);font-weight:500">${items.length} tools</span></h4><div class="directory-items">${items.map(item=>`<button type="button" class="calculator-tile" data-tool="${esc(item.key)}">${esc(item.title)}</button>`).join('')}</div>${items.length>4?`<button type="button" class="directory-more">Show all ${items.length} tools ↓</button>`:''}</section>`).join('');box.querySelectorAll('.directory-more').forEach(b=>b.addEventListener('click',()=>{const g=b.closest('.directory-group');g.classList.toggle('expanded');b.textContent=g.classList.contains('expanded')?'Show fewer ↑':`Show all ${g.querySelectorAll('.calculator-tile').length} tools ↓`;}));box.querySelectorAll('.calculator-tile').forEach(b=>b.addEventListener('click',()=>{selectTool(b.dataset.tool);document.querySelector('.content .card')?.scrollIntoView({behavior:'smooth',block:'start'});}));}
+
+function selectTool(key){current=key;sharedToolMode=false;document.body.classList.remove('shared-tool-mode');history.replaceState(null,'',location.pathname+'?tool='+encodeURIComponent(current)+'#calculators');renderCalc();}
+function filterTools(){const q=($('toolSearch')?.value||'').trim().toLowerCase();let count=0;document.querySelectorAll('.calculator-tile').forEach(b=>{const visible=(!q||b.textContent.toLowerCase().includes(q)||b.dataset.tool.toLowerCase().includes(q))&&!b.classList.contains('hidden');b.hidden=!visible;if(visible)count++;});document.querySelectorAll('.directory-group').forEach(g=>{g.hidden=!g.querySelector('.calculator-tile:not([hidden])');});document.querySelectorAll('.side .toolbtn').forEach(b=>{const match=!q||b.textContent.toLowerCase().includes(q)||b.dataset.tool.toLowerCase().includes(q);b.classList.toggle('search-hidden',!match);});$('toolSearchCount').textContent=q?`${count} matching calculators`:`${count} browser-based calculators`;const directory=$('calculatorDirectory');if(directory)directory.classList.toggle('no-results',!!q&&count===0);const groupsBox=$('directoryGroups');if(groupsBox)groupsBox.classList.toggle('searching',!!q);} 
+function renderCalc(){if(!defs[current])current='crypto';let d=defs[current];$('calcTitle').textContent=d.title;$('calcNote').textContent=d.note;$('calcResult').classList.remove('show');$('calcFields').innerHTML=d.fields.map(f=>`<div class="field"><label for="f_${f[0]}">${f[1]}</label><input id="f_${f[0]}" type="${f[2]}" step="any" value="${f[3]}" min="0"></div>`).join('');document.querySelectorAll('.toolbtn,.calculator-tile').forEach(b=>b.classList.toggle('active',b.dataset.tool===current));renderCalculatorOffers();renderCalculatorAds();}
+function calculate(){let d=defs[current],v={};for(let f of d.fields){let x=Number($('f_'+f[0]).value);if(!Number.isFinite(x)||x<0){$('calcResult').innerHTML='<b>Please enter valid non-negative numbers.</b>'; $('calcResult').classList.add('show');return;}v[f[0]]=x;}let r=d.calc(v);$('calcResult').innerHTML=`<small>${r[0]}</small><strong>${money(r[1])}${current==='risk'?' : 1':' USD'}</strong><small>${r[2]}</small>`;$('calcResult').classList.add('show');}
+document.querySelectorAll('.toolbtn').forEach(b=>b.addEventListener('click',()=>selectTool(b.dataset.tool)));renderExtraToolButtons();renderCalculatorDirectory();$('toolSearch').addEventListener('input',filterTools);filterTools();$('shareTool').addEventListener('click',async()=>{const url=new URL(location.href);url.searchParams.set('tool',current);url.hash='calculators';try{await navigator.clipboard.writeText(url.href);$('shareTool').textContent='Link copied!';setTimeout(()=>$('shareTool').textContent='Copy share link',1800)}catch(e){prompt('Copy this calculator link:',url.href)}});$('calculate').addEventListener('click',calculate);$('resetCalc').addEventListener('click',renderCalc);renderCalc();
+
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function readSettings(){try{return {...defaults,...JSON.parse(localStorage.getItem('tcp_settings')||'{}')}}catch(e){return defaults}}
+// Apply the saved brand identity to the public header.
+function applyBrand(){
+ const logo=$('brandLogo'),name=$('brandName');
+ if(name){const label=String(settings.name||defaults.name);name.textContent=label;}
+ if(logo){
+  const src=String(settings.logoData||'').trim();
+  if(src && (/^https:\/\//i.test(src)||/^data:image\/(png|jpeg|webp);base64,/i.test(src))){
+   logo.innerHTML=`<img src="${esc(src)}" alt="${esc(settings.name||'TradeCalc Pro')} logo">`;
+  }else{logo.textContent=(String(settings.name||'TradeCalc Pro').trim()[0]||'T').toUpperCase();}
+ }
+}
+async function loadPublicBrand(){
+ const sb=window.tradeCalcSupabase;if(!sb)return;
+ try{const {data,error}=await sb.from('site_settings').select('site_name,site_description,logo_url').eq('id',1).maybeSingle();if(error)throw error;
+  if(data){settings.name=data.site_name||defaults.name;settings.description=data.site_description||defaults.description;settings.logoData=data.logo_url||'';applyBrand();}
+ }catch(e){console.warn('Public brand settings could not be loaded:',e.message);}
+}
+async function loadPublicSeo(){
+ const sb=window.tradeCalcSupabase;if(!sb)return;
+ try{const {data,error}=await sb.from('seo_settings').select('page_title,meta_description').eq('id',1).maybeSingle();if(error)throw error;
+  if(data){if(data.page_title)document.title=data.page_title;if(data.meta_description){const meta=document.querySelector('meta[name="description"]');if(meta)meta.content=data.meta_description;}}
+ }catch(e){console.warn('Public SEO settings could not be loaded:',e.message);}
+}
+
+let activeOfferFilter='all';
+function renderOffers(){
+ const all=(settings.offers||[]).filter(o=>o&&o.url&&o.name);
+ const countryFiltered=all.filter(o=>offerAllowed(o));
+ const shown=activeOfferFilter==='all'?countryFiltered:countryFiltered.filter(o=>String(o.cat||'').toLowerCase()===activeOfferFilter.toLowerCase());
+ const grid=$('offerGrid');
+ if(!grid)return;
+ grid.innerHTML=shown.length?shown.map(o=>`<article class="offer"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:9px"><span class="tag">${esc(o.cat||'Partner')}</span>${o.badge?`<span class="chip">${esc(o.badge)}</span>`:''}</div><b>${esc(o.name)}</b><p>${esc(o.description||'Explore this partner platform and review its terms before joining.')}</p><a class="btn small" style="display:inline-block;background:var(--accent);color:#071720;padding:9px 13px;border-radius:9px" href="${esc(o.url)}" target="_blank" rel="nofollow sponsored noopener">${esc(o.cta||'Explore offer')} ↗</a><div class="note">Partner link · Check eligibility and terms</div></article>`).join(''):`<div class="offer"><b>${all.length?'No offers in this category / country':'No active trading offers yet'}</b><p>${all.length?'Try another category, or check the offer country rules.':'Add an active offer from Admin Dashboard → Affiliate links.'}</p></div>`;
+ document.querySelectorAll('[data-offer-filter]').forEach(b=>{const active=b.dataset.offerFilter===activeOfferFilter;b.classList.toggle('active',active);b.classList.toggle('secondary',!active);});
+}
+document.querySelectorAll('[data-offer-filter]').forEach(b=>b.addEventListener('click',()=>{activeOfferFilter=b.dataset.offerFilter;renderOffers();}));$('loadMoreArticles').addEventListener('click',()=>{articlePage++;renderArticleArchive()});
+function calculatorScope(tool){if(['crypto','dca','breakeven'].includes(tool))return 'crypto';if(tool==='forex')return 'forex';if(['stockpnl','stockavg','dividend','sip','cagr','brokerage','pe','eps','roe','portfolio'].includes(tool))return 'stocks';return '';}
+function offerAllowed(o){const allow=(Array.isArray(o.allowed_countries)?o.allowed_countries:[]).map(x=>String(x).toUpperCase()),block=(Array.isArray(o.blocked_countries)?o.blocked_countries:[]).map(x=>String(x).toUpperCase());const cc=(visitorCountry||'').toUpperCase();if(!cc)return allow.length===0&&block.length===0;if(block.includes(cc))return false;return allow.length===0||allow.includes(cc);}
+function renderCalculatorOffers(){const scope=calculatorScope(current),box=$('calculatorOffers');if(!scope){box.classList.add('hidden');return;}const offers=affiliateRows.filter(o=>o.product_scope===scope&&offerAllowed(o));$('calculatorOffersTitle').textContent=scope==='crypto'?'Crypto platform offers':scope==='forex'?'Forex broker offers':'Stock & investing platform offers';$('calculatorOffersNote').textContent=countryReady?(visitorCountry?`Offers available for your region (${visitorCountry}). Check the provider's local terms before joining.`:'Country could not be verified; offers are hidden for eligibility safety.'):'Checking country availability…';$('calculatorOfferGrid').innerHTML=offers.length?offers.map(o=>`<article class="offer"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:9px"><span class="tag">${esc(o.product_scope.toUpperCase())}</span>${o.badge?`<span class="chip">${esc(o.badge)}</span>`:''}</div><b>${esc(o.name)}</b><p>${esc(o.description||'Review platform features, fees and local eligibility before joining.')}</p><a class="btn small" style="display:inline-block;background:var(--accent);color:#071720;padding:9px 13px;border-radius:9px" href="${esc(o.url)}" target="_blank" rel="nofollow sponsored noopener">${esc(o.cta||'Explore offer')} ↗</a><div class="note">Affiliate link · Availability is subject to local laws and provider terms</div></article>`).join(''):'<div class="offer"><b>No eligible offers currently available</b><p>There are no active offers configured for this calculator and country.</p></div>';box.classList.remove('hidden');}
+async function detectVisitorCountry(){try{const r=await fetch('https://ipapi.co/json/',{headers:{Accept:'application/json'}});if(!r.ok)throw new Error('Primary country lookup failed');const d=await r.json();visitorCountry=String(d.country_code||'').toUpperCase();}catch(e){try{const r=await fetch('https://ipwho.is/');if(!r.ok)throw new Error('Fallback country lookup failed');const d=await r.json();visitorCountry=d.success?String(d.country_code||'').toUpperCase():'';}catch(e2){visitorCountry='';}}countryReady=true;renderOffers();renderCalculatorOffers();}
+async function loadPublicAffiliateOffers(){const sb=window.tradeCalcSupabase;if(!sb){console.warn('Affiliate offers: Supabase client is unavailable.');return;}try{const {data,error}=await sb.from('affiliate_offers').select('name,category,product_scope,allowed_countries,blocked_countries,affiliate_url,description,button_text,badge,is_active').eq('is_active',true).order('sort_order',{ascending:true}).order('created_at',{ascending:false});if(error)throw error;affiliateRows=(data||[]).map(o=>({name:o.name,cat:o.category,product_scope:String(o.product_scope||'crypto').toLowerCase(),allowed_countries:o.allowed_countries||[],blocked_countries:o.blocked_countries||[],url:o.affiliate_url,description:o.description,cta:o.button_text,badge:o.badge}));settings.offers=affiliateRows;renderOffers();renderCalculatorOffers();}catch(e){console.warn('Affiliate offers could not be loaded from Supabase:',e.message);const msg='Affiliate offers could not load. Check Supabase public SELECT policy and table columns.';$('offerGrid').innerHTML=`<div class="offer"><b>Offers temporarily unavailable</b><p>${esc(msg)}</p></div>`;$('calculatorOfferGrid').innerHTML=`<div class="offer"><b>Offers temporarily unavailable</b><p>${esc(msg)}</p></div>`;}}
+
+function articleDate(v){try{return new Date(v).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'})}catch(_){return ''}}
+function articleHref(slug){const u=new URL(location.href);u.search='';u.hash='';u.searchParams.set('article',slug);return u.toString()}
+function safeArticleHtml(html){
+  const template=document.createElement('template');
+  template.innerHTML=String(html||'');
+  const allowed=new Set(['P','BR','DIV','SPAN','H1','H2','H3','H4','UL','OL','LI','STRONG','B','EM','I','U','A','BLOCKQUOTE','PRE','CODE','HR','IMG','TABLE','THEAD','TBODY','TR','TH','TD']);
+  const elements=Array.from(template.content.querySelectorAll('*'));
+  elements.forEach(el=>{
+    if(!el.isConnected && !template.content.contains(el)) return;
+    if(!allowed.has(el.tagName)){
+      const parent=el.parentNode;
+      if(parent){
+        while(el.firstChild) parent.insertBefore(el.firstChild,el);
+        parent.removeChild(el);
+      }
+      return;
+    }
+    Array.from(el.attributes).forEach(a=>{
+      const k=a.name.toLowerCase(),v=a.value;
+      if(el.tagName==='A' && k==='href' && /^https:\/\//i.test(v)) return;
+      if(el.tagName==='IMG' && k==='src' && /^https:\/\//i.test(v)) return;
+      if(el.tagName==='IMG' && k==='alt') return;
+      el.removeAttribute(a.name);
+    });
+    if(el.tagName==='A'){
+      el.setAttribute('target','_blank');
+      el.setAttribute('rel','nofollow noopener');
+    }
+    if(el.tagName==='IMG'){
+      el.setAttribute('loading','lazy');
+      el.setAttribute('alt',el.getAttribute('alt')||'Article image');
+    }
+  });
+  return template.innerHTML;
+}
+function articleOfferCard(o){
+ return `<article class="offer article-partner-item"><span class="tag">${esc(o.category||'Partner')}</span><b>${esc(o.name)}</b><p>${esc(o.description||'Explore the platform and review its terms.')}</p><a class="btn small" href="${esc(o.url)}" target="_blank" rel="nofollow sponsored noopener">${esc(o.button_text||'Explore offer')} ↗</a></article>`;
+}
+function articleBodyWithAffiliates(a,body){
+ // Affiliate offers are intentionally kept out of the article body. They are
+ // rendered once, after the complete article, to avoid interrupting reading.
+ return String(body||'');
+}
+function articleAffiliateFooter(a){
+ const ids=Array.isArray(a.partner_offer_ids)?a.partner_offer_ids.map(String):[];
+ const selected=articlePartnerRows.filter(o=>ids.includes(String(o.id))&&articlePartnerAllowed(o));
+ const footerAd=articleAdRows[5]&&articleAdRows[5].enabled&&String(articleAdRows[5].code||'').trim()?'<div class="article-inline-ad article-affiliate-ad" id="articleAd6" aria-label="Advertisement"></div>':'';
+ if(!selected.length)return footerAd;
+ return `<section class="article-inline-box article-partners article-partners-collection article-partners-bottom"><div class="eyebrow">Recommended partners</div><h2>Explore Recommended Platforms</h2><div class="article-partner-list">${selected.map(articleOfferCard).join('')}</div><p class="note">Affiliate disclosure: we may earn a commission if you use these links, at no extra cost to you.</p>${footerAd}</section>`;
+}
+function articlePartnerAllowed(o){const cc=(visitorCountry||'').toUpperCase(),allow=(Array.isArray(o.allowed_countries)?o.allowed_countries:[]).map(x=>String(x).toUpperCase()),block=(Array.isArray(o.blocked_countries)?o.blocked_countries:[]).map(x=>String(x).toUpperCase());if(!cc)return allow.length===0&&block.length===0;if(block.includes(cc))return false;return !allow.length||allow.includes(cc)}
+function articleAdMarkup(){return articleAdRows.map((ad,i)=>ad&&ad.enabled&&ad.code?`<div class="article-inline-ad" id="articleAd${i+1}" aria-label="Advertisement"></div>`:'').join('')}
+function installArticleAds(){
+ // Each enabled dashboard zone has its own unique container and script mount.
+ articleAdRows.forEach((ad,i)=>{
+  const zone=i+1;if(!ad||!ad.enabled||!String(ad.code||'').trim())return;
+  const slot=$('articleAd'+zone);
+  if(!slot){console.warn('Article ad zone '+zone+' has no placement container.');return;}
+  try{installMonetagTag(ad.code,'articleAd'+zone);}
+  catch(err){console.warn('Article ad placement '+zone+' could not be mounted:',err);}
+ });
+}
+function articleBodyWithAds(a,body){
+ // V41: distribute the three in-body zones by cumulative readable text length,
+ // not by raw DOM node index. Rich-text editors can produce nested wrappers and
+ // uneven paragraph sizes; a simple 25/50/75 node index can bunch ads together.
+ const wrapper=document.createElement('div');wrapper.innerHTML=String(body||'');
+ const norm=e=>(e?.textContent||'').replace(/\s+/g,' ').trim();
+ const isOn=n=>!!(articleAdRows[n-1]?.enabled&&String(articleAdRows[n-1]?.code||'').trim());
+ const addSlot=n=>{const el=document.createElement('div');el.className='article-inline-ad article-inline-ad-spaced';el.id='articleAd'+n;el.setAttribute('aria-label','Advertisement');el.dataset.articleZone=String(n);return el;};
+ const insertBefore=(n,anchor)=>{if(!isOn(n)||!anchor||wrapper.querySelector('#articleAd'+n))return;anchor.parentNode?.insertBefore(addSlot(n),anchor);};
+ const insertAfter=(n,anchor)=>{if(!isOn(n)||!anchor||wrapper.querySelector('#articleAd'+n))return;anchor.insertAdjacentElement('afterend',addSlot(n));};
+ // Zone 4 remains immediately before the Introduction heading.
+ const headings=Array.from(wrapper.querySelectorAll('h1,h2,h3,h4'));
+ const intro=headings.find(h=>/introduction|overview|getting started|परिचय/i.test(norm(h)));
+ if(isOn(4))insertBefore(4,intro||wrapper.firstElementChild);
+ // Build a reading-order list of meaningful leaf blocks. Include headings as
+ // boundaries, but exclude parent containers that merely wrap other blocks.
+ const candidates=Array.from(wrapper.querySelectorAll('h1,h2,h3,h4,p,blockquote,pre,table,figure,ul,ol'))
+  .filter(el=>norm(el).length>0)
+  .filter(el=>!Array.from(el.children).some(ch=>ch.matches('h1,h2,h3,h4,p,blockquote,pre,table,figure,ul,ol')))
+  .filter(el=>!el.closest('script,style'));
+ // Prefer text-bearing paragraph/list/table blocks for proportional weighting.
+ let blocks=candidates.filter(el=>!el.matches('h1,h2,h3,h4')&&norm(el).length>12);
+ if(blocks.length<3)blocks=candidates.filter(el=>norm(el).length>0);
+ const zones=[{zone:5,fraction:.25},{zone:8,fraction:.50},{zone:9,fraction:.75}].filter(x=>isOn(x.zone));
+ if(blocks.length&&zones.length){
+  const weights=blocks.map(el=>Math.max(1,norm(el).length));
+  const total=weights.reduce((a,b)=>a+b,0);
+  const cumulative=[];let sum=0;weights.forEach(w=>{sum+=w;cumulative.push(sum);});
+  const chosen=[];
+  zones.forEach(({zone,fraction})=>{
+   const target=total*fraction;
+   let idx=cumulative.findIndex(v=>v>=target);if(idx<0)idx=blocks.length-1;
+   chosen.push({zone,idx,fraction});
+  });
+  // Guarantee separate anchors whenever the article has enough content blocks.
+  const minGap=blocks.length>=9?Math.max(2,Math.floor(blocks.length/10)):1;
+  for(let i=1;i<chosen.length;i++){
+   if(chosen[i].idx<=chosen[i-1].idx){chosen[i].idx=Math.min(blocks.length-1,chosen[i-1].idx+minGap);}
+  }
+  for(let i=chosen.length-2;i>=0;i--){
+   if(chosen[i].idx>=chosen[i+1].idx){chosen[i].idx=Math.max(0,chosen[i+1].idx-minGap);}
+  }
+  chosen.forEach(({zone,idx})=>insertAfter(zone,blocks[idx]));
+ }
+ // Fallback for malformed/single-wrapper article content: split at available
+ // top-level elements rather than silently appending all remaining ads at end.
+ zones.forEach(({zone},i)=>{
+  if(!isOn(zone)||wrapper.querySelector('#articleAd'+zone))return;
+  const children=Array.from(wrapper.children).filter(el=>!el.id?.startsWith('articleAd'));
+  if(children.length){const at=Math.min(children.length-1,Math.round((children.length-1)*(i+1)/(zones.length+1)));insertAfter(zone,children[at]);}
+  else wrapper.appendChild(addSlot(zone));
+ });
+ return wrapper.innerHTML;
+}
+async function loadArticleMonetization(){const sb=window.tradeCalcSupabase;if(!sb)return;try{const [adRes,partnerRes]=await Promise.all([sb.from('article_ad_settings').select('*').eq('id',1).maybeSingle(),sb.from('article_partner_offers').select('*').eq('is_active',true).order('sort_order',{ascending:true})]);if(adRes.error)throw adRes.error;if(partnerRes.error)throw partnerRes.error;articleAdRows=adRes.data&&adRes.data.enabled?Array.from({length:9},(_,i)=>i+1).map(n=>({enabled:[4,5,6,8,9].includes(n)&&!!adRes.data['zone'+n+'_enabled'],code:adRes.data['zone'+n+'_code']||''})):[];articlePartnerRows=(partnerRes.data||[]).map(o=>({...o,url:o.affiliate_url}));}catch(e){console.warn('Article-only monetization could not load:',e.message);articleAdRows=[];articlePartnerRows=[];}}
+function articleCard(a){return `<article class="article-card">${a.cover_image?`<a href="${articleHref(a.slug)}"><img src="${esc(a.cover_image)}" alt="${esc(a.title)}" loading="lazy"></a>`:''}<div class="article-card-body"><div class="note">${esc(a.category||'Insights')} · ${articleDate(a.published_at||a.created_at)}</div><h3><a href="${articleHref(a.slug)}">${esc(a.title)}</a></h3><p>${esc(a.excerpt||'Read the full article for practical insights and helpful explanations.')}</p><a href="${articleHref(a.slug)}">Read article →</a></div></article>`}
+function renderArticleLists(){const ticker=$('articleTicker'),archive=$('articleArchive');if(!ticker||!archive)return;const latest=articleRows.slice(0,10);if(!latest.length){ticker.innerHTML='<div class=\"article-ticker-row\"><span class=\"rank\">—</span><span class=\"meta\"><b>Articles are coming soon</b><small>New insights will appear here.</small></span></div>';archive.innerHTML='<div class=\"offer\"><b>No articles published yet</b><p>New articles will appear here after publication.</p></div>';$('loadMoreArticles').classList.add('hidden');return;}const rows=latest.map((a,i)=>`<a class=\"article-ticker-row\" href=\"${articleHref(a.slug)}\"><span class=\"rank\">${String(i+1).padStart(2,'0')}</span><span class=\"meta\"><b>${esc(a.title)}</b><small>${esc(a.category||'Insights')} · ${articleDate(a.published_at||a.created_at)}</small></span><span class=\"arrow\">↗</span></a>`).join('');ticker.classList.toggle('ticker-static',latest.length<5);ticker.style.height=latest.length<5?'auto':'';const track=ticker.querySelector('.article-ticker-track')||ticker;track.innerHTML=latest.length<5?rows:rows+rows;renderArticleArchive();}
+function renderArticleArchive(){const archive=$('articleArchive');if(!archive)return;const rows=articleRows.slice(0,(articlePage+1)*ARTICLE_PAGE_SIZE);archive.innerHTML=rows.map(articleCard).join('')||'<div class="offer"><b>No articles yet</b></div>';const more=$('loadMoreArticles');if(more)more.classList.toggle('hidden',rows.length>=articleRows.length);}
+async function loadPublicArticles(){
+ const sb=window.tradeCalcSupabase;if(!sb){console.error('Articles: Supabase client is unavailable.');return;}
+ const routeSlug=new URLSearchParams(location.search).get('article');
+ // Article detail routes fetch only the requested article, not the full archive.
+ // This removes the second, redundant archive-then-detail loading sequence.
+ if(routeSlug){await showArticle(routeSlug);return;}
+ try{
+  await loadArticleMonetization();
+  const {data,error}=await sb.from('articles').select('id,title,slug,excerpt,category,published_at,created_at,cover_image,author_name,tags,seo_title,seo_description').eq('status','published').lte('published_at',new Date().toISOString()).order('published_at',{ascending:false}).limit(500);
+  if(error)throw error;articleRows=data||[];renderArticleLists();
+ }catch(e){
+  console.error('Article library query failed:',e);const ticker=$('articleTicker'),archive=$('articleArchive');
+  if(ticker)ticker.innerHTML=`<div class="article-ticker-row"><span class="meta"><b>Article library temporarily unavailable</b><small>${esc(e.message||'Database request failed')}</small></span></div>`;
+  if(archive)archive.innerHTML=`<div class="offer"><b>Articles unavailable</b><p>${esc(e.message||'Database request failed')}</p></div>`;
+ }
+}
+async function showArticle(slug){
+ const cleanSlug=String(slug||'').trim();
+ const view=document.getElementById('articleView');
+ if(!view)return false;
+ const allSections=document.querySelectorAll('#publicSite .wrap > section');
+ // Render a loading state immediately; the early route class prevents homepage flash.
+ view.classList.remove('hidden');
+ view.style.display='block';
+ view.innerHTML='<div class="article-detail-inner"><h1>Loading article…</h1><p class="note">Please wait while the published article is loaded.</p></div>';
+ try{
+   const monetizationTask=loadArticleMonetization();
+   let a=articleRows.find(x=>String(x.slug||'').trim()===cleanSlug);
+   // Direct article routes fetch one record only; do not load the whole article archive.
+   if(!a || !a.content){
+     const sb=window.tradeCalcSupabase;
+     if(!sb)throw new Error('Supabase client is not initialized. Check supabase-config.js and the Supabase script connection.');
+     const {data,error}=await sb.from('articles')
+       .select('id,title,slug,excerpt,content,category,published_at,created_at,cover_image,author_name,tags,seo_title,seo_description,partner_offer_ids')
+       .eq('slug',cleanSlug).eq('status','published').maybeSingle();
+     if(error)throw error;
+     a=data||null;
+   }
+   await monetizationTask;
+   if(!a)throw new Error('No published article was returned for slug: '+cleanSlug);
+   if(!String(a.content||'').trim())throw new Error('The article record was found, but its content field is empty.');
+   const affiliateBody=articleBodyWithAffiliates(a,safeArticleHtml(a.content));
+   const body=articleBodyWithAds(a,affiliateBody);
+   const safeTitle=esc(a.title||'Untitled article');
+   const dateText=articleDate(a.published_at||a.created_at);
+   const excerpt=a.excerpt?`<p class="article-excerpt">${esc(a.excerpt)}</p>`:'';
+   const cover=a.cover_image?`<img class="article-cover" src="${esc(a.cover_image)}" alt="${safeTitle}">`:'';
+   const tags=Array.isArray(a.tags)?a.tags.map(t=>`<span>${esc(t)}</span>`).join(''):'';
+   const contentMarkup=`${cover}<div class="article-detail-inner"><div class="eyebrow">${esc(a.category||'Trading insights')}</div><h1>${safeTitle}</h1>${excerpt}<div class="article-byline">By ${esc(a.author_name||'TradeCalc Pro Editorial Team')} · ${dateText}</div><div class="article-share"><a class="btn secondary" href="${location.pathname}#articles" style="text-decoration:none">← All articles</a></div><div class="article-prose">${body}</div>${articleAffiliateFooter(a)}<div class="article-tags">${tags}</div><p class="note">Editorial content is for educational purposes only and is not financial advice. Affiliate disclosure: some links may earn us a commission at no extra cost to you.</p></div>`;
+   // Only hide homepage sections after the article markup has been successfully built.
+   view.innerHTML=contentMarkup;
+   installArticleAds(a);
+   allSections.forEach(el=>{if(el!==view)el.classList.add('hidden');});
+   view.classList.remove('hidden');
+   view.style.display='block';
+   document.title=a.seo_title||a.title||'TradeCalc Pro Article';
+   const desc=document.querySelector('meta[name="description"]');if(desc)desc.content=a.seo_description||a.excerpt||a.title||'';
+   const canon=document.getElementById('canonicalLink');if(canon)canon.href=location.href;
+   window.scrollTo({top:0,behavior:'instant'});
+   return true;
+ }catch(err){
+   console.error('Article page failed to render:',err);
+   // Do not leave visitors with an empty screen: surface the real failure.
+   view.innerHTML=`<div class="article-detail-inner"><h1>Article could not be displayed</h1><p class="note">${esc(err&&err.message?err.message:String(err))}</p><a class="btn secondary" href="${location.pathname}#articles" style="text-decoration:none">← Browse all articles</a></div>`;
+   allSections.forEach(el=>{if(el!==view)el.classList.add('hidden');});
+   view.classList.remove('hidden');view.style.display='block';
+   return false;
+ }
+}
+
+function mountAdCodeInSlot(code,slot){
+ const target=$(slot); if(!target||target.dataset.loaded==='1'||!code)return;
+ let source=String(code).trim();
+ target.replaceChildren(); target.style.display='block'; target.style.minHeight='250px';
+ target.style.width='100%'; target.style.maxWidth='300px'; target.style.margin='18px auto'; target.style.overflow='hidden';
+ target.dataset.loaded='1';
+ // If an Adsterra banner snippet was pasted more than once into one dashboard zone,
+ // keep only the first complete atOptions + invoke.js pair for this placement.
+ if(/highrevenueformat\.com\/.*\/invoke\.js/i.test(source)){
+   const optionMatch=source.match(/<script\b[^>]*>[\s\S]*?atOptions\s*=[\s\S]*?<\/script>/i);
+   const invokeMatch=source.match(/<script\b[^>]*src=[\"'][^\"']*highrevenueformat\.com\/[^\"']*\/invoke\.js[^\"']*[\"'][^>]*>[\s\S]*?<\/script>/i);
+   if(optionMatch&&invokeMatch)source=optionMatch[0]+'\n'+invokeMatch[0];
+ }
+ // Adsterra 300x250 invoke.js relies on the global atOptions object.
+ // Run each ad unit in its own iframe so repeated placements cannot overwrite atOptions.
+ if(/highrevenueformat\.com\/.*\/invoke\.js/i.test(source)&&/['"]format['"]\s*:\s*['"]iframe['"]/.test(source)){
+   const frame=document.createElement('iframe');
+   frame.title='Advertisement'; frame.width='300'; frame.height='250';
+   frame.loading='eager'; frame.referrerPolicy='strict-origin-when-cross-origin';
+   frame.style.cssText='display:block;width:300px;height:250px;max-width:100%;border:0;margin:0 auto;background:transparent;';
+   frame.setAttribute('sandbox','allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox');
+   frame.srcdoc='<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;width:300px;height:250px;overflow:hidden;">'+source.replace(/<\/body>|<\/html>/gi,'')+'</body></html>';
+   target.appendChild(frame); return;
+ }
+ const doc=new DOMParser().parseFromString(source,'text/html');
+ const nodes=[...doc.body.childNodes];
+ if(!nodes.length){target.dataset.loaded='';target.style.display='none';console.warn('Empty ad placement code:',slot);return;}
+ nodes.forEach(node=>{if(node.nodeType===Node.TEXT_NODE&&!node.textContent.trim())return;if(node.nodeName==='SCRIPT'){const fresh=document.createElement('script');[...node.attributes].forEach(a=>fresh.setAttribute(a.name,a.value));fresh.text=node.textContent||'';target.appendChild(fresh);}else target.appendChild(document.importNode(node,true));});
+}
+function installMonetagTag(code,slot){mountAdCodeInSlot(code,slot);}
+function installHomeBannerTag(code,slot){mountAdCodeInSlot(code,slot);}
+function installSitewideInPagePush(code){if(!code||document.head.querySelector('[data-monetag-sitewide-push="1"]'))return;const parsed=new DOMParser().parseFromString(code,'text/html');const scripts=[...parsed.querySelectorAll('script')];if(!scripts.length){console.warn('In-Page Push code must contain a script tag.');return;}scripts.forEach(src=>{const fresh=document.createElement('script');[...src.attributes].forEach(a=>fresh.setAttribute(a.name,a.value));fresh.dataset.monetagSitewidePush='1';fresh.text=src.textContent||'';document.head.appendChild(fresh);});}
+function renderCalculatorAds(){const legacy=$('adInline');if(legacy){legacy.replaceChildren();legacy.classList.add('hidden');legacy.style.display='none';}for(let i=1;i<=4;i++){const a=monetagRows[i-1],slot=$('calcAd'+i);if(!slot)continue;if(a&&a.enabled&&a.code)installMonetagTag(a.code,'calcAd'+i);else{slot.replaceChildren();slot.dataset.loaded='';slot.style.display='none';}}}
+async function loadMonetagSettings(){const sb=window.tradeCalcSupabase;if(!sb)return;try{const {data,error}=await sb.from('monetag_settings').select('enabled,max_zones,sitewide_enabled,sitewide_code,zone1_enabled,zone1_code,zone2_enabled,zone2_code,zone3_enabled,zone3_code,zone4_enabled,zone4_code,home_zone1_enabled,home_zone1_code,home_zone2_enabled,home_zone2_code,home_zone3_enabled,home_zone3_code,home_zone4_enabled,home_zone4_code,home_zone5_enabled,home_zone5_code').eq('id',1).maybeSingle();if(error)throw error;if(!data)return;/* Legacy sitewide push intentionally not loaded: fixed inline banner placements only. */homeBannerRows=[1,2,3,4,5].map(i=>({enabled:!!data['home_zone'+i+'_enabled'],code:data['home_zone'+i+'_code']||''}));homeBannerRows.forEach((a,i)=>{const el=$('homeBanner'+(i+1));if(a.enabled&&a.code)installHomeBannerTag(a.code,'homeBanner'+(i+1));else if(el){el.replaceChildren();el.style.display='none';el.dataset.loaded='';}});if(!data.enabled)return;const max=Math.min(4,Math.max(1,Number(data.max_zones)||1));monetagRows=[1,2,3,4].slice(0,max).map(i=>({enabled:!!data['zone'+i+'_enabled'],code:data['zone'+i+'_code']||''}));renderCalculatorAds();}catch(e){console.warn('Ad settings could not be loaded:',e.message);}}
+function applyShareMode(){document.body.classList.toggle('shared-tool-mode',sharedToolMode);const side=document.querySelector('.layout .side');if(side)side.setAttribute('aria-hidden',sharedToolMode?'true':'false');}
+function applyTools(){document.querySelectorAll('.toolbtn,.calculator-tile').forEach(b=>b.classList.toggle('hidden',!settings.tools[b.dataset.tool]));if(!settings.tools[current]&&!sharedToolMode){current=Object.keys(defs).find(k=>settings.tools[k])||'crypto';renderCalc();}filterTools();applyShareMode();}
+async function loadPublicTools(){const sb=window.tradeCalcSupabase;if(!sb)return;try{const {data,error}=await sb.from('calculator_tools').select('tool_key,enabled').order('sort_order',{ascending:true});if(error)throw error;const visibility={...defaults.tools};(data||[]).forEach(row=>{if(Object.prototype.hasOwnProperty.call(visibility,row.tool_key))visibility[row.tool_key]=!!row.enabled;});settings.tools=visibility;applyTools();}catch(e){console.warn('Calculator visibility could not be loaded from Supabase:',e.message);applyTools();}}
+const LEGAL_CONTENT={
+about:{title:'About TradeCalc Pro',html:`<p>TradeCalc Pro provides free online calculators and educational resources intended to help visitors understand common trading, investing and personal-finance calculations. Our tools are provided for general information and learning.</p><h2>Our approach</h2><p>We aim to present calculations clearly and help users understand assumptions, inputs and possible outcomes. Results are estimates and may differ from exchange, broker or market-platform figures.</p><h2>Independence</h2><p>TradeCalc Pro is an independent educational resource. Unless expressly stated, we are not a broker, exchange, investment adviser, financial institution or trading platform.</p>`},
+contact:{title:'Contact Us',html:`<p>For website feedback, corrections, partnership enquiries, privacy requests or technical support, contact the TradeCalc Pro team using the official email configured by the website administrator.</p><div class="offer"><b>Contact email</b><p id="legalContactEmail">The contact email will appear here when configured by the administrator in the CEO profile.</p></div><p>Please include the page URL and a short description of your enquiry. Do not send passwords, payment-card details or other sensitive information.</p>`},
+privacy:{title:'Privacy Policy',html:`<p><b>Last updated: 10 November 2026</b></p><p>This policy explains how TradeCalc Pro may collect, use and protect information when you visit the website.</p><h2>Information you provide</h2><p>If you contact us, we may receive your name, email address and the contents of your message. Calculator inputs are used to generate results in your browser unless a feature clearly states otherwise.</p><h2>Technical information</h2><p>Like most websites, our hosting, security, analytics or advertising providers may process technical data such as IP address, browser type, device information, pages visited and approximate location derived from IP address.</p><h2>Advertising and third parties</h2><p>We may display third-party advertisements and partner links. Advertising providers may use cookies or similar technologies to deliver, measure or personalise advertisements subject to their own policies and your applicable consent choices.</p><h2>Cookies</h2><p>Cookies and local storage may be used for essential website operation, preferences, security and advertising. You can manage cookies through your browser settings; blocking some cookies may affect website functions.</p><h2>Data sharing and retention</h2><p>We do not sell personal contact details submitted directly to us. Information may be processed by service providers needed to host, secure and operate the website, or disclosed where legally required. We retain enquiries only as long as reasonably necessary.</p><h2>Your choices</h2><p>You may contact us to request access, correction or deletion of personal information you have submitted, subject to applicable law and legitimate record-keeping requirements.</p><h2>Children</h2><p>This website is not intended to knowingly collect personal information from children. Contact us if you believe a child has submitted personal information.</p><h2>Policy updates</h2><p>We may update this policy from time to time. The revised date will be shown at the top of this page.</p>`},
+terms:{title:'Terms & Conditions',html:`<p><b>Last updated: 10 November 2026</b></p><p>By accessing TradeCalc Pro, you agree to use the website lawfully and in accordance with these terms. If you do not agree, please stop using the website.</p><h2>Permitted use</h2><p>You may use the calculators and educational content for personal, non-commercial informational purposes. You must not misuse the website, attempt unauthorised access, disrupt its operation, scrape it abusively or infringe intellectual-property rights.</p><h2>No professional advice</h2><p>Content and calculator results are general information only and do not constitute financial, investment, legal, tax or other professional advice or a recommendation to buy, sell or hold any asset.</p><h2>Accuracy and availability</h2><p>We try to keep information useful and current but do not warrant that tools, data, content or the website will always be accurate, complete, uninterrupted or error-free. Verify important figures independently.</p><h2>Third-party services</h2><p>Links to brokers, exchanges, advertisers and other third parties are provided for convenience. We do not control or guarantee their products, services, availability, security or terms.</p><h2>Intellectual property</h2><p>Unless otherwise stated, website design, branding and original content belong to TradeCalc Pro or its licensors. You may not republish substantial content without permission.</p><h2>Limitation</h2><p>To the extent permitted by law, TradeCalc Pro is not liable for losses arising from reliance on website content, calculator outputs, market movements, third-party services or temporary unavailability.</p><h2>Changes</h2><p>We may update these terms. Continued use after an update means you accept the revised terms.</p>`},
+disclaimer:{title:'Disclaimer',html:`<p><b>Last updated: 10 November 2026</b></p><p>TradeCalc Pro is an educational website. Nothing on this website is financial, investment, trading, legal, tax or accounting advice, and nothing is an offer, solicitation or recommendation to transact in any financial instrument.</p><h2>Calculator estimates</h2><p>Calculator outputs depend on the inputs and assumptions supplied by the visitor. Results may exclude spreads, slippage, funding, swap, commissions, taxes, exchange rules, contract specifications, liquidity and other costs unless expressly included. Always verify results with your broker or exchange.</p><h2>Market risk</h2><p>Cryptocurrency, forex, derivatives, stocks and leveraged products involve risk. Prices can move rapidly and you may lose some or all of your capital. Leverage can magnify both gains and losses.</p><h2>No guarantee</h2><p>Past performance, examples and hypothetical calculations do not guarantee future results. You are solely responsible for your decisions and should seek independent professional advice where appropriate.</p>`},
+risk:{title:'Risk Disclosure',html:`<p>Trading and investing involve risk, including possible loss of principal. Cryptoassets may be highly volatile and may have limited regulatory protection. Forex, CFDs, options, futures and other leveraged products can cause losses quickly; in some products and jurisdictions losses may exceed the initial amount deposited.</p><p>Before trading, understand the product, leverage, margin requirements, liquidation rules, fees and local regulations. Never trade with money you cannot afford to lose. Consider obtaining independent financial advice.</p><p>TradeCalc Pro calculators are educational estimates, not a substitute for broker statements, exchange specifications or professional advice.</p>`},
+cookies:{title:'Cookie Policy',html:`<p>TradeCalc Pro and its service providers may use cookies, local storage and similar technologies to keep the website working, remember preferences, protect services, measure usage and support advertising.</p><h2>Types of technologies</h2><ul><li><b>Essential:</b> support security, navigation and core functionality.</li><li><b>Preferences:</b> remember settings where available.</li><li><b>Analytics:</b> help understand aggregate website usage, if enabled.</li><li><b>Advertising:</b> may be used by advertising partners to deliver, limit, measure or personalise ads.</li></ul><p>You can control or delete cookies through your browser settings. If an advertising consent banner is presented, use it to manage optional advertising choices. Blocking cookies may affect some features.</p>`},
+affiliate:{title:'Affiliate Disclosure',html:`<p>Some links on TradeCalc Pro may be affiliate or partner links. If you click a link and take an eligible action, we may receive a commission or other compensation at no additional cost to you.</p><p>Affiliate relationships do not guarantee that a provider is suitable for you. We encourage visitors to compare providers independently, review fees and risks, and check local availability and regulatory status before signing up.</p><p>Partner availability, terms, promotions and eligibility may change. The visitor is responsible for reviewing the provider's current terms.</p>`}
+};
+function renderLegalPage(key){const page=LEGAL_CONTENT[key];if(!page)return false;document.documentElement.classList.add('legal-route');document.documentElement.classList.remove('article-route');document.querySelectorAll('#publicSite .wrap > section').forEach(el=>el.classList.add('hidden'));const legal=$('legalPage');legal.classList.remove('hidden');legal.innerHTML=`<a class="legal-back" href="index.html">← Back to TradeCalc Pro</a><h1>${page.title}</h1>${page.html}`;document.title=page.title+' | TradeCalc Pro';if(key==='contact')loadContactEmail();window.scrollTo(0,0);return true;}
+async function loadContactEmail(){const el=$('legalContactEmail');if(!el)return;try{const sb=window.tradeCalcSupabase;if(!sb)return;const {data,error}=await sb.from('ceo_profiles').select('official_email').eq('id',1).maybeSingle();if(error)throw error;if(data?.official_email){const a=document.createElement('a');a.href='mailto:'+data.official_email;a.textContent=data.official_email;el.replaceChildren(a);}}catch(e){console.warn('Contact email unavailable:',e.message);}}
+async function loadPublicSocialLinks(){const box=$('publicSocialLinks');if(!box)return;try{const sb=window.tradeCalcSupabase;if(!sb){box.innerHTML='<span class="social-loading">Social links are not available right now.</span>';return;}const {data,error}=await sb.from('site_social_links').select('platform,label,url,sort_order').eq('is_active',true).order('sort_order',{ascending:true}).limit(4);if(error)throw error;box.replaceChildren();const icons={Instagram:'◎',Facebook:'f',YouTube:'▶',X:'𝕏',LinkedIn:'in',Telegram:'➤',TikTok:'♪'};const brand={Instagram:'#d9468c',Facebook:'#1877f2',YouTube:'#f00',X:'#050505',LinkedIn:'#0a66c2',Telegram:'#229ed9',TikTok:'#101820'};(data||[]).forEach(item=>{try{const u=new URL(item.url);if(u.protocol!=='https:')return;const platform=String(item.platform||'').trim();const a=document.createElement('a');a.href=u.href;a.target='_blank';a.rel='noopener noreferrer';a.dataset.platform=platform;a.style.setProperty('--social-brand',brand[platform]||'#397d8d');const logo=document.createElement('span');logo.className='social-logo';logo.setAttribute('aria-hidden','true');logo.textContent=icons[platform]||platform.slice(0,1).toUpperCase()||'↗';const name=document.createElement('span');name.className='social-name';name.textContent=item.label||platform||'Social';a.append(logo,name);a.setAttribute('aria-label',platform||name.textContent);box.appendChild(a);}catch(_){}});if(!box.children.length)box.innerHTML='<span class="social-loading">Social links will appear here when configured in the dashboard.</span>';}catch(e){box.innerHTML='<span class="social-loading">Social links could not be loaded. Please check the social links settings.</span>';console.warn('Social links are not configured or SQL is pending:',e.message);}}
+const initialPage=new URLSearchParams(location.search).get('page');if(initialPage)renderLegalPage(initialPage);loadPublicSocialLinks();
+if(!defs[current]){current='crypto';sharedToolMode=false;}applyShareMode();$('year').textContent=new Date().getFullYear();applyBrand();document.title=settings.seo.title;document.querySelector('meta[name=description]').content=settings.seo.description;renderOffers();applyTools();loadPublicBrand();loadPublicSeo();loadMonetagSettings();loadPublicAffiliateOffers();loadPublicTools();const initialArticleSlug=new URLSearchParams(location.search).get('article');if(initialArticleSlug){document.documentElement.classList.add('article-route');}loadPublicArticles();detectVisitorCountry();
+window.addEventListener('popstate',()=>{const params=new URLSearchParams(location.search),page=params.get('page'),slug=params.get('article');if(page){renderLegalPage(page);return;}document.documentElement.classList.remove('legal-route');$('legalPage')?.classList.add('hidden');if(slug)showArticle(slug);else{document.documentElement.classList.remove('article-route');document.querySelectorAll('#publicSite .wrap > section').forEach(el=>el.classList.remove('hidden'));const v=$('articleView');if(v)v.classList.add('hidden');document.title=settings.seo.title;}});
+window.addEventListener('storage',e=>{if(e.key==='tcp_settings'){settings=readSettings();settings.tools={...defaults.tools,...(settings.tools||{})};settings.seo={...defaults.seo,...(settings.seo||{})};applyBrand();document.title=settings.seo.title;renderOffers();applyTools();}});
+})();
+
+;
+
+(function(){function hideAdminShortcut(){document.querySelectorAll('header nav a,header nav button,header .navlinks a,header .navlinks button').forEach(function(el){var label=(el.textContent||'').replace(/\s+/g,' ').trim().toLowerCase();var href=(el.getAttribute('href')||'').toLowerCase();if(label.includes('admin dashboard')||label==='admin'||href.includes('admin.html')||href.includes('dashboard'))el.style.setProperty('display','none','important');});}hideAdminShortcut();new MutationObserver(hideAdminShortcut).observe(document.body,{childList:true,subtree:true});})();
