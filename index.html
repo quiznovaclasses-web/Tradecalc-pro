@@ -298,64 +298,58 @@ function articleAffiliateFooter(a){
 function articlePartnerAllowed(o){const cc=(visitorCountry||'').toUpperCase(),allow=(Array.isArray(o.allowed_countries)?o.allowed_countries:[]).map(x=>String(x).toUpperCase()),block=(Array.isArray(o.blocked_countries)?o.blocked_countries:[]).map(x=>String(x).toUpperCase());if(!cc)return allow.length===0&&block.length===0;if(block.includes(cc))return false;return !allow.length||allow.includes(cc)}
 function articleAdMarkup(){return articleAdRows.map((ad,i)=>ad&&ad.enabled&&ad.code?`<div class="article-inline-ad" id="articleAd${i+1}" aria-label="Advertisement"></div>`:'').join('')}
 function installArticleAds(){
- // Mount each configured zone independently and report missing containers or
- // missing dashboard settings clearly in the browser console.
+ // Each enabled dashboard zone has its own unique container and script mount.
  articleAdRows.forEach((ad,i)=>{
-  const zone=i+1;if(!ad||!ad.enabled||!String(ad.code||'').trim()){
-   console.info('Article ad zone '+zone+' is disabled or has no saved code.');return;
-  }
+  const zone=i+1;if(!ad||!ad.enabled||!String(ad.code||'').trim())return;
   const slot=$('articleAd'+zone);
-  if(!slot){console.warn('Article ad zone '+zone+' is enabled in Dashboard but its placement container was not created.');return;}
+  if(!slot){console.warn('Article ad zone '+zone+' has no placement container.');return;}
   try{installMonetagTag(ad.code,'articleAd'+zone);}
   catch(err){console.warn('Article ad placement '+zone+' could not be mounted:',err);}
  });
 }
 function articleBodyWithAds(a,body){
- // Keep all six placements independent. Zones 1–3 are deliberately anchored
- // to separate paragraph positions; zones 4–5 are near the introduction;
- // zone 6 is mounted by articleAffiliateFooter().
+ // Existing zones 1–5 retain their positions. Zone 4 (before Introduction)
+ // and zone 6 (affiliate footer) are deliberately preserved. New independent
+ // zones: 7 immediately after Introduction heading, 8 at article centre,
+ // and 9 approximately 8–10 content rows before the centre.
  const active=articleAdRows.map((ad,i)=>({n:i+1,ad})).filter(x=>x.n!==6&&x.ad&&x.ad.enabled&&String(x.ad.code||'').trim());
  if(!active.length)return String(body||'');
  const wrapper=document.createElement('div');wrapper.innerHTML=String(body||'');
  const norm=e=>(e?.textContent||'').replace(/\s+/g,' ').trim().toLowerCase();
  const headings=Array.from(wrapper.querySelectorAll('h1,h2,h3,h4'));
  const intro=headings.find(h=>/introduction|overview|getting started|परिचय/.test(norm(h)));
- // Count readable content blocks only. Exclude nested list items when a list
- // itself is already counted, so ad anchors are stable and don't split lists.
  const blocks=Array.from(wrapper.querySelectorAll('p,blockquote,pre,table,figure,ul,ol'))
-   .filter(el=>norm(el).length>20&&!el.closest('script,style')&&!((el.matches('ul,ol'))&&el.parentElement?.closest('ul,ol')));
- const last=Math.max(0,blocks.length-1);
- const clamp=i=>Math.min(last,Math.max(0,i));
- const positions={
-   1:clamp(8),
-   2:clamp(18),
-   3:clamp(Math.round(last*.76)),
-   5:clamp(4)
- };
- // For shorter articles, move colliding placements to the next available
- // content block. This prevents zones 1, 2, 3 and 5 from stacking together.
+  .filter(el=>norm(el).length>20&&!el.closest('script,style')&&!((el.matches('ul,ol'))&&el.parentElement?.closest('ul,ol')));
+ const last=Math.max(0,blocks.length-1), clamp=i=>Math.min(last,Math.max(0,i));
+ const center=clamp(Math.floor(last/2));
+ const positions={1:clamp(8),2:clamp(18),3:clamp(Math.round(last*.76)),5:clamp(4),8:center,9:clamp(center-9)};
+ // Keep all active placements separate even on shorter articles.
  const used=new Set();
- [5,1,2,3].forEach(n=>{
-   let pos=positions[n];
-   while(used.has(pos)&&pos<last)pos++;
-   while(used.has(pos)&&pos>0)pos--;
-   positions[n]=pos;used.add(pos);
+ [5,9,1,2,8,3].forEach(n=>{
+  let pos=positions[n];
+  while(used.has(pos)&&pos<last)pos++;
+  while(used.has(pos)&&pos>0)pos--;
+  positions[n]=pos;used.add(pos);
  });
- const insertions=active.map(x=>({n:x.n,anchor:x.n===4?(intro||wrapper.firstElementChild):blocks[positions[x.n]]||null}));
- // Process anchors from the end of the document toward the beginning so
- // earlier insertions cannot disturb later anchors.
- const order=(a,b)=>{if(!a)return -1;if(!b)return 1;if(a===b)return 0;return a.compareDocumentPosition(b)&Node.DOCUMENT_POSITION_FOLLOWING?-1:1;};
- insertions.sort((a,b)=>{const c=order(a.anchor,b.anchor);return c===0?b.n-a.n:-c;});
+ const insertions=active.map(x=>{
+  if(x.n===4)return {n:x.n,anchor:intro||wrapper.firstElementChild,where:'before'};
+  if(x.n===7)return {n:x.n,anchor:intro,where:'after'};
+  return {n:x.n,anchor:blocks[positions[x.n]]||null,where:'after'};
+ });
+ // Descending DOM order prevents earlier insertions from changing later anchors.
+ insertions.sort((a,b)=>{
+  if(!a.anchor)return 1;if(!b.anchor)return -1;if(a.anchor===b.anchor)return b.n-a.n;
+  return (a.anchor.compareDocumentPosition(b.anchor)&Node.DOCUMENT_POSITION_FOLLOWING)?1:-1;
+ });
  insertions.forEach(item=>{
-   const el=document.createElement('div');el.className='article-inline-ad';el.id='articleAd'+item.n;el.setAttribute('aria-label','Advertisement');
-   const anchor=item.anchor;
-   if(item.n===4){if(anchor?.parentNode)anchor.parentNode.insertBefore(el,anchor);else wrapper.insertBefore(el,wrapper.firstChild);}
-   else if(anchor?.parentNode)anchor.insertAdjacentElement('afterend',el);
-   else wrapper.appendChild(el);
+  const el=document.createElement('div');el.className='article-inline-ad';el.id='articleAd'+item.n;el.setAttribute('aria-label','Advertisement');
+  const anchor=item.anchor;
+  if(anchor?.parentNode){if(item.where==='before')anchor.parentNode.insertBefore(el,anchor);else anchor.insertAdjacentElement('afterend',el);}
+  else wrapper.appendChild(el);
  });
  return wrapper.innerHTML;
 }
-async function loadArticleMonetization(){const sb=window.tradeCalcSupabase;if(!sb)return;try{const [adRes,partnerRes]=await Promise.all([sb.from('article_ad_settings').select('*').eq('id',1).maybeSingle(),sb.from('article_partner_offers').select('*').eq('is_active',true).order('sort_order',{ascending:true})]);if(adRes.error)throw adRes.error;if(partnerRes.error)throw partnerRes.error;articleAdRows=adRes.data&&adRes.data.enabled?[1,2,3,4,5,6].map(n=>({enabled:!!adRes.data['zone'+n+'_enabled'],code:adRes.data['zone'+n+'_code']||''})):[];articlePartnerRows=(partnerRes.data||[]).map(o=>({...o,url:o.affiliate_url}));}catch(e){console.warn('Article-only monetization could not load:',e.message);articleAdRows=[];articlePartnerRows=[];}}
+async function loadArticleMonetization(){const sb=window.tradeCalcSupabase;if(!sb)return;try{const [adRes,partnerRes]=await Promise.all([sb.from('article_ad_settings').select('*').eq('id',1).maybeSingle(),sb.from('article_partner_offers').select('*').eq('is_active',true).order('sort_order',{ascending:true})]);if(adRes.error)throw adRes.error;if(partnerRes.error)throw partnerRes.error;articleAdRows=adRes.data&&adRes.data.enabled?Array.from({length:9},(_,i)=>i+1).map(n=>({enabled:!!adRes.data['zone'+n+'_enabled'],code:adRes.data['zone'+n+'_code']||''})):[];articlePartnerRows=(partnerRes.data||[]).map(o=>({...o,url:o.affiliate_url}));}catch(e){console.warn('Article-only monetization could not load:',e.message);articleAdRows=[];articlePartnerRows=[];}}
 function articleCard(a){return `<article class="article-card">${a.cover_image?`<a href="${articleHref(a.slug)}"><img src="${esc(a.cover_image)}" alt="${esc(a.title)}" loading="lazy"></a>`:''}<div class="article-card-body"><div class="note">${esc(a.category||'Insights')} · ${articleDate(a.published_at||a.created_at)}</div><h3><a href="${articleHref(a.slug)}">${esc(a.title)}</a></h3><p>${esc(a.excerpt||'Read the full article for practical insights and helpful explanations.')}</p><a href="${articleHref(a.slug)}">Read article →</a></div></article>`}
 function renderArticleLists(){const ticker=$('articleTicker'),archive=$('articleArchive');if(!ticker||!archive)return;const latest=articleRows.slice(0,10);if(!latest.length){ticker.innerHTML='<div class=\"article-ticker-row\"><span class=\"rank\">—</span><span class=\"meta\"><b>Articles are coming soon</b><small>New insights will appear here.</small></span></div>';archive.innerHTML='<div class=\"offer\"><b>No articles published yet</b><p>New articles will appear here after publication.</p></div>';$('loadMoreArticles').classList.add('hidden');return;}const rows=latest.map((a,i)=>`<a class=\"article-ticker-row\" href=\"${articleHref(a.slug)}\"><span class=\"rank\">${String(i+1).padStart(2,'0')}</span><span class=\"meta\"><b>${esc(a.title)}</b><small>${esc(a.category||'Insights')} · ${articleDate(a.published_at||a.created_at)}</small></span><span class=\"arrow\">↗</span></a>`).join('');ticker.classList.toggle('ticker-static',latest.length<5);ticker.style.height=latest.length<5?'auto':'';const track=ticker.querySelector('.article-ticker-track')||ticker;track.innerHTML=latest.length<5?rows:rows+rows;renderArticleArchive();}
 function renderArticleArchive(){const archive=$('articleArchive');if(!archive)return;const rows=articleRows.slice(0,(articlePage+1)*ARTICLE_PAGE_SIZE);archive.innerHTML=rows.map(articleCard).join('')||'<div class="offer"><b>No articles yet</b></div>';const more=$('loadMoreArticles');if(more)more.classList.toggle('hidden',rows.length>=articleRows.length);}
