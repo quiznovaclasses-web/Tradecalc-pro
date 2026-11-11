@@ -83,10 +83,23 @@ footer{border-top:1px solid var(--line);padding:26px 0;color:var(--muted);font-s
 .shared-tool-mode .layout{grid-template-columns:minmax(0,1fr)}.shared-tool-mode .layout .side{display:none!important}.shared-tool-mode #calculators .section-head p{display:none}.hidden{display:none!important}.admin-shell{padding:32px 0 60px}.admin-top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}.admin-grid{display:grid;grid-template-columns:210px 1fr;gap:16px}.admin-menu button{display:block;width:100%;text-align:left;background:none;color:var(--muted);border:0;padding:11px;border-radius:9px}.admin-menu button.active,.admin-menu button:hover{background:#20344d;color:white}.admin-panel{min-width:0}.admin-panel h2{margin-top:0}.admin-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.admin-box{background:#0c1928;border:1px solid var(--line);border-radius:13px;padding:15px;margin:12px 0}.admin-box h3{margin:0 0 12px}.checkline{display:flex;gap:9px;align-items:center;color:var(--muted);margin:10px 0}.checkline input{accent-color:var(--accent)}.table{width:100%;border-collapse:collapse;font-size:13px}.table th,.table td{text-align:left;padding:10px;border-bottom:1px solid var(--line);overflow-wrap:anywhere}.table th{color:var(--muted)}.danger{background:#492333;color:#ffdbe1}.login{max-width:430px;margin:65px auto}.login p{color:var(--muted)}.disclaimer{border:1px solid #69552a;background:#2c2617;color:#f5d99a;border-radius:12px;padding:12px;font-size:12px;margin:16px 0}
 @media(max-width:800px){.directory-groups{grid-template-columns:1fr}.directory-items{grid-template-columns:repeat(2,minmax(0,1fr))}.hero{grid-template-columns:1fr;padding-top:35px}.layout{grid-template-columns:1fr}.side{display:flex;overflow:auto;gap:5px}.side h3{display:none}.toolbtn{white-space:nowrap;width:auto}.offer-grid{grid-template-columns:1fr 1fr}.admin-grid{grid-template-columns:1fr}.admin-menu{display:flex;overflow:auto;gap:5px}.admin-menu button{white-space:nowrap;width:auto}}
 @media(max-width:520px){#calculatorDirectory{padding:13px;margin:12px 0 16px}.directory-groups{margin-right:-2px}.directory-group{flex-basis:88%;max-height:390px}.directory-groups.searching{grid-template-columns:1fr}.directory-groups.searching .directory-group{max-height:390px}.directory-items{grid-template-columns:1fr}.calculator-tile{min-height:46px;font-size:13px}.social-links a{width:calc(33.333% - 10px);min-width:88px;min-height:100px}.social-logo{width:44px;height:44px}.tool-search-wrap{padding:11px}.tool-search-wrap input{min-width:100%;width:100%}.wrap{padding:0 14px}.navlinks a{display:none}.hero h1{letter-spacing:-1px}.fields,.admin-row{grid-template-columns:1fr}.offer-grid{grid-template-columns:1fr}.card{padding:16px}.section-head{align-items:start;flex-direction:column}}
+
+/* V30 lightweight multilingual control */
+.tcp-language-control{display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--text);font-size:13px;white-space:nowrap}
+.tcp-language-control select{max-width:118px;background:transparent;color:inherit;border:0;outline:0;font:inherit;cursor:pointer}
+.tcp-language-control option{background:#101c2c;color:#fff}
+@media(max-width:760px){.navlinks{flex-wrap:wrap}.tcp-language-control{margin:4px 0}.tcp-language-control select{max-width:104px}}
+
+</style>
+
+<style id="article-partner-consolidation-v29">
+.article-partners-collection{display:block;margin:28px 0;padding:18px;border:1px solid var(--line,#2b4058);border-radius:18px;background:rgba(22,42,64,.55)}
+.article-partners-collection h2{margin:8px 0 10px}.article-partner-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px;margin-top:14px}.article-partner-item{margin:0;min-width:0}.article-partner-item .btn{display:inline-flex;margin-top:6px}.article-inline-ad{clear:both;min-height:250px;max-width:300px;width:100%;margin:22px auto;display:block;}
+@media(max-width:600px){.article-partners-collection{padding:14px}.article-partner-list{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
-<header><div class="wrap nav"><div class="brand"><span class="logo" id="brandLogo">T</span><span id="brandName">TradeCalc <span style="color:var(--accent)">Pro</span></span></div><nav class="navlinks"><a href="#calculators">Calculators</a><a href="#offers">Trading offers</a><a href="#about">About</a><a class="btn secondary small" href="admin.html" style="text-decoration:none">Admin Dashboard</a></nav></div></header>
+<header><div class="wrap nav"><div class="brand"><span class="logo" id="brandLogo">T</span><span id="brandName">TradeCalc <span style="color:var(--accent)">Pro</span></span></div><nav class="navlinks"><a href="#calculators">Calculators</a><a href="#offers">Trading offers</a><a href="#about">About</a><a class="btn secondary small" href="admin.html" style="text-decoration:none">Admin Dashboard</a><label class="tcp-language-control" translate="no" aria-label="Choose language"><span>🌐</span><select id="tcpLanguageSelect" aria-label="Website language"><option value="auto">Auto</option><option value="en">English</option><option value="hi">हिन्दी</option><option value="es">Español</option><option value="fr">Français</option><option value="de">Deutsch</option><option value="pt">Português</option><option value="it">Italiano</option><option value="ru">Русский</option><option value="ar">العربية</option><option value="ja">日本語</option><option value="zh-CN">简体中文</option><option value="ko">한국어</option><option value="tr">Türkçe</option><option value="id">Bahasa Indonesia</option><option value="bn">বাংলা</option><option value="ur">اردو</option></select></label></nav></div></header>
 <main id="publicSite">
 <div class="wrap">
 <section class="hero"><div><div id="homeBanner1" class="home-banner-slot" aria-label="Advertisement"></div><div class="eyebrow">Free tools · Browser-based calculations · Smarter trade planning</div><h1>Free Online Trading Calculators for <span style="color:var(--accent)">Crypto, Forex & Stocks</span></h1><p>Plan trades with more clarity using 129+ free browser-based calculators from TradeCalc Pro. Estimate cryptocurrency and stock profit or loss, forex pip value, position size, leverage, margin, trading fees, risk-to-reward, investment returns and portfolio metrics—without installing an app or connecting an exchange account.</p><div class="chips"><span class="chip">129+ free calculators</span><span class="chip">Works in your browser</span><span class="chip">Mobile-friendly tools</span><span class="chip">No exchange login required</span></div><a href="#calculators" class="btn" style="display:inline-block;text-decoration:none">Browse all trading calculators →</a><div id="homeBanner2" class="home-banner-slot" aria-label="Advertisement"></div></div>
@@ -261,23 +274,20 @@ function safeArticleHtml(html){
   });
   return template.innerHTML;
 }
-function articleOfferCard(o,placement,index){return `<aside class="article-inline-box article-partners article-placement-${placement}"><div class="eyebrow">${index===0?'Partner recommendation':'Recommended partner'}</div><article class="offer"><span class="tag">${esc(o.category||'Partner')}</span><b>${esc(o.name)}</b><p>${esc(o.description||'Explore the platform and review its terms.')}</p><a class="btn small" href="${esc(o.url)}" target="_blank" rel="nofollow sponsored noopener">${esc(o.button_text||'Explore offer')} ↗</a></article><p class="note">Affiliate link · We may earn a commission at no extra cost to you.</p></aside>`}
+function articleOfferCard(o){
+ return `<article class="offer article-partner-item"><span class="tag">${esc(o.category||'Partner')}</span><b>${esc(o.name)}</b><p>${esc(o.description||'Explore the platform and review its terms.')}</p><a class="btn small" href="${esc(o.url)}" target="_blank" rel="nofollow sponsored noopener">${esc(o.button_text||'Explore offer')} ↗</a></article>`;
+}
 function articleBodyWithAffiliates(a,body){
  const ids=Array.isArray(a.partner_offer_ids)?a.partner_offer_ids.map(String):[];
  const selected=articlePartnerRows.filter(o=>ids.includes(String(o.id))&&articlePartnerAllowed(o));
  if(!selected.length)return body;
+ const partnerBlock=`<section class="article-inline-box article-partners article-partners-collection"><div class="eyebrow">Recommended partners</div><h2>Explore recommended platforms</h2><p class="note">Compare features, fees, eligibility and terms before choosing a provider.</p><div class="article-partner-list">${selected.map(articleOfferCard).join('')}</div><p class="note">Affiliate disclosure: we may earn a commission if you use these links, at no extra cost to you.</p></section>`;
+ // Keep every selected partner in one consolidated section, rather than scattering cards.
  const chunks=body.split(/(?<=<\/(?:p|div|h2|h3|h4|ul|ol|blockquote)>)/i).filter(Boolean);
- if(!chunks.length)return body+selected.map((o,i)=>articleOfferCard(o,['left','right','center'][i%3],i)).join('');
- let out='',cursor=0;const count=selected.length;
- for(let i=0;i<chunks.length;i++){
-   out+=chunks[i];
-   if(cursor<count){
-     const target=Math.max(1,Math.floor((i+1)*(chunks.length+1)/(count+1)));
-     if(i+1===target){const placement=['left','right','center'][cursor%3];out+=articleOfferCard(selected[cursor],placement,cursor);cursor++;}
-   }
- }
- while(cursor<count){out+=articleOfferCard(selected[cursor],['left','right','center'][cursor%3],cursor);cursor++;}
- return out;
+ if(chunks.length<4)return body+partnerBlock;
+ const insertAt=Math.min(chunks.length,Math.max(3,Math.ceil(chunks.length*0.72)));
+ chunks.splice(insertAt,0,partnerBlock);
+ return chunks.join('');
 }
 function articlePartnerAllowed(o){const cc=(visitorCountry||'').toUpperCase(),allow=(Array.isArray(o.allowed_countries)?o.allowed_countries:[]).map(x=>String(x).toUpperCase()),block=(Array.isArray(o.blocked_countries)?o.blocked_countries:[]).map(x=>String(x).toUpperCase());if(!cc)return allow.length===0&&block.length===0;if(block.includes(cc))return false;return !allow.length||allow.includes(cc)}
 function articleAdMarkup(){return articleAdRows.map((ad,i)=>ad&&ad.enabled&&ad.code?`<div class="article-inline-ad" id="articleAd${i+1}" aria-label="Advertisement"></div>`:'').join('')}
@@ -291,25 +301,33 @@ function installArticleAds(){
  });
 }
 function articleBodyWithAds(a,body){
- // Six global article placements are independent of the legacy per-article
- // selection field. Distribute every enabled placement across the article body.
  const slots=articleAdRows.map((ad,i)=>({n:i+1,ad})).filter(x=>x.ad&&x.ad.enabled&&String(x.ad.code||'').trim()).map(x=>x.n);
  if(!slots.length)return body;
- const chunks=body.split(/(?<=<\/(?:p|h2|h3|h4|ul|ol|blockquote)>)/i).filter(Boolean);
- if(!chunks.length)return body+slots.map(n=>`<div class="article-inline-ad" id="articleAd${n}" aria-label="Advertisement"></div>`).join('');
+ const make=n=>`<div class="article-inline-ad" id="articleAd${n}" aria-label="Advertisement"></div>`;
+ // Use semantic article headings where available; fall back to safe content boundaries.
+ const chunks=body.split(/(?<=<\/(?:p|div|h2|h3|h4|ul|ol|blockquote)>)/i).filter(Boolean);
+ if(!chunks.length)return slots.map(make).join('')+body;
+ const textOf=chunk=>chunk.replace(/<[^>]*>/g,' ').replace(/&nbsp;/g,' ').replace(/\s+/g,' ').trim().toLowerCase();
+ const headingIndex=pattern=>chunks.findIndex(c=>/<h[23][^>]*>/i.test(c)&&pattern.test(textOf(c)));
+ const introEnd=Math.min(chunks.length,Math.max(3,chunks.findIndex((c,i)=>i>=2&&/<h[23][^>]*>/i.test(c))>0?chunks.findIndex((c,i)=>i>=2&&/<h[23][^>]*>/i.test(c)):4));
+ const keyIndex=headingIndex(/key concepts|key takeaways|核心概念/);
+ const conclusionIndex=headingIndex(/conclusion|final thoughts|summary|wrapping up/);
+ const partnerIndex=chunks.findIndex(c=>c.includes('article-partners-collection'));
+ const targets=[];
+ if(slots.length>0)targets.push({n:slots[0],at:0}); // top of article
+ if(slots.length>1)targets.push({n:slots[1],at:Math.min(chunks.length,introEnd)}); // after introduction
+ if(slots.length>2)targets.push({n:slots[2],at:keyIndex>=0?keyIndex+1:Math.min(chunks.length,Math.ceil(chunks.length*.45))});
+ if(slots.length>3)targets.push({n:slots[3],at:conclusionIndex>=0?Math.min(chunks.length,conclusionIndex+2):Math.min(chunks.length-0,Math.ceil(chunks.length*.88))});
+ if(slots.length>4)targets.push({n:slots[4],at:partnerIndex>=0?Math.min(chunks.length,partnerIndex+4):Math.min(chunks.length,Math.ceil(chunks.length*.68))});
+ if(slots.length>5)targets.push({n:slots[5],at:Math.min(chunks.length,Math.ceil(chunks.length*.60))});
+ const atMap=new Map();
+ targets.forEach(t=>{const at=Math.max(0,Math.min(chunks.length,t.at));if(!atMap.has(at))atMap.set(at,[]);atMap.get(at).push(t.n);});
+ // If two semantic targets coincide, keep both ad zones separately at that point.
  let out='';
- // Place slots at evenly spaced content boundaries. If the article has fewer
- // boundaries than placements, the remaining slots are still emitted separately.
- const targets=slots.map((_,i)=>Math.max(1,Math.min(chunks.length,Math.ceil((i+1)*chunks.length/(slots.length+1)))));
- let cursor=0;
- chunks.forEach((part,i)=>{
-  out+=part;
-  while(cursor<slots.length&&targets[cursor]===i+1){
-   const n=slots[cursor++];
-   out+=`<div class="article-inline-ad" id="articleAd${n}" aria-label="Advertisement"></div>`;
-  }
- });
- while(cursor<slots.length){const n=slots[cursor++];out+=`<div class="article-inline-ad" id="articleAd${n}" aria-label="Advertisement"></div>`;}
+ for(let i=0;i<=chunks.length;i++){
+  (atMap.get(i)||[]).forEach(n=>out+=make(n));
+  if(i<chunks.length)out+=chunks[i];
+ }
  return out;
 }
 async function loadArticleMonetization(){const sb=window.tradeCalcSupabase;if(!sb)return;try{const [adRes,partnerRes]=await Promise.all([sb.from('article_ad_settings').select('*').eq('id',1).maybeSingle(),sb.from('article_partner_offers').select('*').eq('is_active',true).order('sort_order',{ascending:true})]);if(adRes.error)throw adRes.error;if(partnerRes.error)throw partnerRes.error;articleAdRows=adRes.data&&adRes.data.enabled?[1,2,3,4,5,6].map(n=>({enabled:!!adRes.data['zone'+n+'_enabled'],code:adRes.data['zone'+n+'_code']||''})):[];articlePartnerRows=(partnerRes.data||[]).map(o=>({...o,url:o.affiliate_url}));}catch(e){console.warn('Article-only monetization could not load:',e.message);articleAdRows=[];articlePartnerRows=[];}}
@@ -425,4 +443,4 @@ if(!defs[current]){current='crypto';sharedToolMode=false;}applyShareMode();$('ye
 window.addEventListener('popstate',()=>{const params=new URLSearchParams(location.search),page=params.get('page'),slug=params.get('article');if(page){renderLegalPage(page);return;}document.documentElement.classList.remove('legal-route');$('legalPage')?.classList.add('hidden');if(slug)showArticle(slug);else{document.documentElement.classList.remove('article-route');document.querySelectorAll('#publicSite .wrap > section').forEach(el=>el.classList.remove('hidden'));const v=$('articleView');if(v)v.classList.add('hidden');document.title=settings.seo.title;}});
 window.addEventListener('storage',e=>{if(e.key==='tcp_settings'){settings=readSettings();settings.tools={...defaults.tools,...(settings.tools||{})};settings.seo={...defaults.seo,...(settings.seo||{})};applyBrand();document.title=settings.seo.title;renderOffers();applyTools();}});
 })();
-</script></body></html>
+</script><script src="auto-language.js" defer></script></body></html>
