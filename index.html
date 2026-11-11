@@ -308,48 +308,44 @@ function installArticleAds(){
  });
 }
 function articleBodyWithAds(a,body){
- // Five active article ad placements only: Zone 4 before Introduction,
- // Zone 5 after 4–5 introductory content rows, Zone 8 below Key concepts,
- // Zone 9 inside Conclusion, and Zone 6 in the affiliate footer.
+ // Keep the proven top (Zone 4) and affiliate-footer (Zone 6) placements.
+ // Spread the three in-body placements evenly across readable article content.
  const wrapper=document.createElement('div');wrapper.innerHTML=String(body||'');
- const norm=e=>(e?.textContent||'').replace(/\s+/g,' ').trim().toLowerCase();
+ const norm=e=>(e?.textContent||'').replace(/\s+/g,' ').trim();
  const headings=Array.from(wrapper.querySelectorAll('h1,h2,h3,h4'));
- const intro=headings.find(h=>/introduction|overview|getting started|परिचय/.test(norm(h)));
- const keyHeading=headings.find(h=>/key concepts|key takeaways|core concepts|मुख्य अवधारणा|मुख्य बातें/.test(norm(h)));
- const conclusion=headings.find(h=>/conclusion|final thoughts|summary|wrapping up|निष्कर्ष/.test(norm(h)));
+ const intro=headings.find(h=>/introduction|overview|getting started|परिचय/i.test(norm(h)));
  const blocks=Array.from(wrapper.querySelectorAll('p,blockquote,pre,table,figure,ul,ol'))
   .filter(el=>norm(el).length>20&&!el.closest('script,style'))
   .filter(el=>!((el.matches('ul,ol'))&&el.parentElement?.closest('ul,ol')))
   .filter(el=>!Array.from(el.children).some(child=>child.matches('p,blockquote,pre,table,figure,ul,ol')));
  const isOn=n=>articleAdRows[n-1]?.enabled&&String(articleAdRows[n-1]?.code||'').trim();
  const insert=(n,anchor,where='after')=>{
-  if(!isOn(n)||!anchor)return;
+  if(!isOn(n)||!anchor||wrapper.querySelector('#articleAd'+n))return;
   const el=document.createElement('div');el.className='article-inline-ad';el.id='articleAd'+n;el.setAttribute('aria-label','Advertisement');
   if(where==='before')anchor.parentNode?.insertBefore(el,anchor);else anchor.insertAdjacentElement('afterend',el);
  };
- // Zone 4: immediately before the Introduction heading.
+ // Zone 4: immediately before Introduction (unchanged).
  if(isOn(4))insert(4,intro||wrapper.firstElementChild,'before');
- // Zone 5: after the 4th/5th readable content block following Introduction.
- if(isOn(5)){
-  const introIndex=intro?headings.indexOf(intro):-1;
-  const afterIntro=blocks.filter(b=>(!intro||!!(intro.compareDocumentPosition(b)&Node.DOCUMENT_POSITION_FOLLOWING))&&(!keyHeading||!(keyHeading.compareDocumentPosition(b)&Node.DOCUMENT_POSITION_FOLLOWING)));
-  const target=afterIntro[Math.min(4,Math.max(0,afterIntro.length-1))]||blocks[0];
-  if(target)insert(5,target,'after');
- }
- // Zone 8: directly below the Key concepts heading.
- if(isOn(8)){
-  const target=keyHeading||blocks[Math.floor(Math.max(0,blocks.length-1)*.5)];
-  if(target)insert(8,target,'after');
- }
- // Zone 9: inside Conclusion, immediately below its heading (or its first paragraph).
- if(isOn(9)){
-  let target=conclusion;
-  if(conclusion){
-   let next=conclusion.nextElementSibling;
-   while(next&&!/^(P|UL|OL|BLOCKQUOTE|TABLE|FIGURE)$/.test(next.tagName))next=next.nextElementSibling;
-   if(next)target=next;
-  }else target=blocks[blocks.length-1];
-  if(target)insert(9,target,'after');
+ // Zones 5, 8 and 9: target approximately 25%, 50% and 75% of the
+ // article's readable content blocks, instead of anchoring all three to
+ // headings near the end. This keeps the ads separated on long articles.
+ const spreadZones=[{zone:5,fraction:.25},{zone:8,fraction:.50},{zone:9,fraction:.75}]
+  .filter(x=>isOn(x.zone));
+ const count=blocks.length;
+ if(count){
+  const used=new Set();
+  spreadZones.forEach(({zone,fraction},i)=>{
+   let idx=Math.round((count-1)*fraction);
+   // If a short article maps multiple zones to one block, move to the
+   // nearest unused block so separate zones never stack on one anchor.
+   if(used.has(idx)){
+    for(let d=1;d<count;d++){
+     const candidates=[idx-d,idx+d].filter(v=>v>=0&&v<count&&!used.has(v));
+     if(candidates.length){idx=candidates[0];break;}
+    }
+   }
+   used.add(idx);insert(zone,blocks[idx],'after');
+  });
  }
  return wrapper.innerHTML;
 }
