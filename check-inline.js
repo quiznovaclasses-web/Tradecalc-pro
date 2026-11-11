@@ -132,17 +132,34 @@ function articleBodyWithAffiliates(a,body){
 }
 function articlePartnerAllowed(o){const cc=(visitorCountry||'').toUpperCase(),allow=(Array.isArray(o.allowed_countries)?o.allowed_countries:[]).map(x=>String(x).toUpperCase()),block=(Array.isArray(o.blocked_countries)?o.blocked_countries:[]).map(x=>String(x).toUpperCase());if(!cc)return allow.length===0&&block.length===0;if(block.includes(cc))return false;return !allow.length||allow.includes(cc)}
 function articleAdMarkup(){return articleAdRows.map((ad,i)=>ad&&ad.enabled&&ad.code?`<div class="article-inline-ad" id="articleAd${i+1}" aria-label="Advertisement"></div>`:'').join('')}
-function installArticleAds(){articleAdRows.forEach((ad,i)=>{if(ad&&ad.enabled&&ad.code)installMonetagTag(ad.code,'articleAd'+(i+1));});}
+function installArticleAds(){
+ // Install each active article placement independently so one malformed/network
+ // response cannot prevent later placements from being mounted.
+ articleAdRows.forEach((ad,i)=>{
+  if(!ad||!ad.enabled||!String(ad.code||'').trim())return;
+  try{installMonetagTag(ad.code,'articleAd'+(i+1));}
+  catch(err){console.warn('Article ad placement '+(i+1)+' could not be mounted:',err);}
+ });
+}
 function articleBodyWithAds(a,body){
- // Article pages use the six independent global article placements. Older article
- // records may contain only four selected IDs; do not let that legacy selection
- // silently suppress configured placements 5 and 6.
- const slots=articleAdRows.map((ad,i)=>({n:i+1,ad})).filter(x=>x.ad&&x.ad.enabled&&x.ad.code).map(x=>x.n);
+ // Six global article placements are independent of the legacy per-article
+ // selection field. Distribute every enabled placement across the article body.
+ const slots=articleAdRows.map((ad,i)=>({n:i+1,ad})).filter(x=>x.ad&&x.ad.enabled&&String(x.ad.code||'').trim()).map(x=>x.n);
  if(!slots.length)return body;
- const chunks=body.split(/(?<=<\/(?:p|div|h2|h3|h4|ul|ol|blockquote)>)/i).filter(Boolean);
- if(!chunks.length)return body+articleAdMarkup();
- let out='',cursor=0;const interval=Math.max(1,Math.floor(chunks.length/(slots.length+1)));
- chunks.forEach((part,i)=>{out+=part;if(cursor<slots.length&&i<chunks.length-1&&(i+1)%interval===0){const n=slots[cursor++];out+=`<div class="article-inline-ad" id="articleAd${n}" aria-label="Advertisement"></div>`;}});
+ const chunks=body.split(/(?<=<\/(?:p|h2|h3|h4|ul|ol|blockquote)>)/i).filter(Boolean);
+ if(!chunks.length)return body+slots.map(n=>`<div class="article-inline-ad" id="articleAd${n}" aria-label="Advertisement"></div>`).join('');
+ let out='';
+ // Place slots at evenly spaced content boundaries. If the article has fewer
+ // boundaries than placements, the remaining slots are still emitted separately.
+ const targets=slots.map((_,i)=>Math.max(1,Math.min(chunks.length,Math.ceil((i+1)*chunks.length/(slots.length+1)))));
+ let cursor=0;
+ chunks.forEach((part,i)=>{
+  out+=part;
+  while(cursor<slots.length&&targets[cursor]===i+1){
+   const n=slots[cursor++];
+   out+=`<div class="article-inline-ad" id="articleAd${n}" aria-label="Advertisement"></div>`;
+  }
+ });
  while(cursor<slots.length){const n=slots[cursor++];out+=`<div class="article-inline-ad" id="articleAd${n}" aria-label="Advertisement"></div>`;}
  return out;
 }
@@ -222,7 +239,7 @@ function mountAdCodeInSlot(code,slot){
  if(/highrevenueformat\.com\/.*\/invoke\.js/i.test(source)&&/['"]format['"]\s*:\s*['"]iframe['"]/.test(source)){
    const frame=document.createElement('iframe');
    frame.title='Advertisement'; frame.width='300'; frame.height='250';
-   frame.loading='lazy'; frame.referrerPolicy='strict-origin-when-cross-origin';
+   frame.loading='eager'; frame.referrerPolicy='strict-origin-when-cross-origin';
    frame.style.cssText='display:block;width:300px;height:250px;max-width:100%;border:0;margin:0 auto;background:transparent;';
    frame.setAttribute('sandbox','allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox');
    frame.srcdoc='<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;width:300px;height:250px;overflow:hidden;">'+source.replace(/<\/body>|<\/html>/gi,'')+'</body></html>';
