@@ -97,9 +97,15 @@ footer{border-top:1px solid var(--line);padding:26px 0;color:var(--muted);font-s
 .article-partners-collection h2{margin:8px 0 10px}.article-partner-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px;margin-top:14px}.article-partner-item{margin:0;min-width:0}.article-partner-item .btn{display:inline-flex;margin-top:6px}.article-inline-ad{clear:both;min-height:250px;max-width:300px;width:100%;margin:22px auto;display:block;}
 @media(max-width:600px){.article-partners-collection{padding:14px}.article-partner-list{grid-template-columns:1fr}}
 </style>
+
+<style id="hide-public-admin-entry">
+/* Admin access remains available by direct admin URL; keep its shortcut private. */
+.navlinks a[href*="admin" i],.navlinks a[href*="dashboard" i],.navlinks .admin-link,.navlinks #adminDashboardLink,.navlinks [data-admin-link="true"]{display:none!important}
+</style>
+
 </head>
 <body>
-<header><div class="wrap nav"><div class="brand"><span class="logo" id="brandLogo">T</span><span id="brandName">TradeCalc <span style="color:var(--accent)">Pro</span></span></div><nav class="navlinks"><a href="#calculators">Calculators</a><a href="#offers">Trading offers</a><a href="#about">About</a><a class="btn secondary small" href="admin.html" style="text-decoration:none">Admin Dashboard</a><label class="tcp-language-control" translate="no" aria-label="Choose language"><span>🌐</span><select id="tcpLanguageSelect" aria-label="Website language"><option value="auto">Auto</option><option value="en">English</option><option value="hi">हिन्दी</option><option value="es">Español</option><option value="fr">Français</option><option value="de">Deutsch</option><option value="pt">Português</option><option value="it">Italiano</option><option value="ru">Русский</option><option value="ar">العربية</option><option value="ja">日本語</option><option value="zh-CN">简体中文</option><option value="ko">한국어</option><option value="tr">Türkçe</option><option value="id">Bahasa Indonesia</option><option value="bn">বাংলা</option><option value="ur">اردو</option></select></label></nav></div></header>
+<header><div class="wrap nav"><div class="brand"><span class="logo" id="brandLogo">T</span><span id="brandName">TradeCalc <span style="color:var(--accent)">Pro</span></span></div><nav class="navlinks"><a href="#calculators">Calculators</a><a href="#offers">Trading offers</a><a href="#about">About</a><label class="tcp-language-control" translate="no" aria-label="Choose language"><span>🌐</span><select id="tcpLanguageSelect" aria-label="Website language"><option value="auto">Auto</option><option value="en">English</option><option value="hi">हिन्दी</option><option value="es">Español</option><option value="fr">Français</option><option value="de">Deutsch</option><option value="pt">Português</option><option value="it">Italiano</option><option value="ru">Русский</option><option value="ar">العربية</option><option value="ja">日本語</option><option value="zh-CN">简体中文</option><option value="ko">한국어</option><option value="tr">Türkçe</option><option value="id">Bahasa Indonesia</option><option value="bn">বাংলা</option><option value="ur">اردو</option></select></label></nav></div></header>
 <main id="publicSite">
 <div class="wrap">
 <section class="hero"><div><div id="homeBanner1" class="home-banner-slot" aria-label="Advertisement"></div><div class="eyebrow">Free tools · Browser-based calculations · Smarter trade planning</div><h1>Free Online Trading Calculators for <span style="color:var(--accent)">Crypto, Forex & Stocks</span></h1><p>Plan trades with more clarity using 129+ free browser-based calculators from TradeCalc Pro. Estimate cryptocurrency and stock profit or loss, forex pip value, position size, leverage, margin, trading fees, risk-to-reward, investment returns and portfolio metrics—without installing an app or connecting an exchange account.</p><div class="chips"><span class="chip">129+ free calculators</span><span class="chip">Works in your browser</span><span class="chip">Mobile-friendly tools</span><span class="chip">No exchange login required</span></div><a href="#calculators" class="btn" style="display:inline-block;text-decoration:none">Browse all trading calculators →</a><div id="homeBanner2" class="home-banner-slot" aria-label="Advertisement"></div></div>
@@ -303,35 +309,55 @@ function articleBodyWithAds(a,body){
  const active=articleAdRows.map((ad,i)=>({n:i+1,ad})).filter(x=>x.ad&&x.ad.enabled&&String(x.ad.code||'').trim());
  if(!active.length)return body;
  const wrapper=document.createElement('div');wrapper.innerHTML=String(body||'');
- const blocks=()=>Array.from(wrapper.children).filter(el=>!['SCRIPT','STYLE'].includes(el.tagName));
- const textBlocks=()=>Array.from(wrapper.querySelectorAll('p,li,blockquote'));
- const headings=()=>Array.from(wrapper.querySelectorAll('h2,h3,h4'));
  const norm=e=>(e?.textContent||'').replace(/\s+/g,' ').trim().toLowerCase();
- const intro=headings().find(h=>/introduction|overview|getting started|परिचय/.test(norm(h)));
- const key=headings().find(h=>/key concepts|key takeaways|core concepts|मुख्य अवधारणा|मुख्य बातें/.test(norm(h)));
- const conclusion=headings().find(h=>/conclusion|final thoughts|summary|wrapping up|निष्कर्ष/.test(norm(h)));
- const allText=textBlocks();
- const afterTextCount=(count)=>allText[Math.min(allText.length-1,count-1)]||null;
- const afterSection=(heading)=>{if(!heading)return null;let n=heading;while((n=n.nextElementSibling)&&!/^H[2-4]$/.test(n.tagName)){}return n?n.previousElementSibling:heading.parentElement.lastElementChild;};
- const afterPercent=p=>allText[Math.max(0,Math.min(allText.length-1,Math.floor((allText.length-1)*p)))]||null;
- // Zone 1: immediately before Introduction / article body.
- // Zone 2: after 8-10 text blocks; Zone 3: after 15-20; remaining zones
- // are distributed through upper, centre and lower portions of the article.
- const targets={1:null,2:afterTextCount(9),3:afterTextCount(18),4:afterPercent(.48),5:afterPercent(.68),6:conclusion?afterSection(conclusion):afterPercent(.88)};
+ const headings=Array.from(wrapper.querySelectorAll('h2,h3,h4'));
+ const intro=headings.find(h=>/introduction|overview|getting started|परिचय/.test(norm(h)));
+ const conclusion=headings.find(h=>/conclusion|final thoughts|summary|wrapping up|निष्कर्ष/.test(norm(h)));
+ // Use the real paragraph/list blocks in DOM order. Do not collapse nested
+ // paragraphs into their parent wrapper: that was causing several ads to stack
+ // together immediately below the Introduction heading.
+ let blocks=Array.from(wrapper.querySelectorAll('p,li,blockquote,pre,table,figure'))
+   .filter(el=>norm(el).length>20 && !el.closest('script,style'));
+ if(blocks.length<4){
+   const fallback=Array.from(wrapper.children).filter(el=>norm(el).length>20 && !['SCRIPT','STYLE'].includes(el.tagName));
+   if(fallback.length>blocks.length)blocks=fallback;
+ }
+ const at=(index)=>blocks[Math.min(blocks.length-1,Math.max(0,index))]||null;
+ const fraction=(f)=>at(Math.round((Math.max(1,blocks.length)-1)*f));
+ const afterConclusion=()=>{
+   if(!conclusion)return null;
+   let node=conclusion;
+   while(node.nextElementSibling&&!/^H[2-4]$/.test(node.nextElementSibling.tagName))node=node.nextElementSibling;
+   return node;
+ };
+ // Each zone gets a distinct paragraph anchor whenever the article has enough
+ // content. This spreads ads through the article instead of clustering them.
+ const targets={
+   1:null,
+   2:blocks.length>=10?at(8):fraction(.20),
+   3:blocks.length>=20?at(18):fraction(.42),
+   4:fraction(.58),
+   5:fraction(.76),
+   6:afterConclusion()||fraction(.90)
+ };
+ const docOrder=(a,b)=>{
+   if(!a)return -1;if(!b)return 1;if(a===b)return 0;
+   return a.compareDocumentPosition(b)&Node.DOCUMENT_POSITION_FOLLOWING?-1:1;
+ };
+ // Insert later anchors first so earlier insertions cannot shift their positions.
  const ordered=active.map(x=>({n:x.n,anchor:targets[x.n]})).sort((a,b)=>{
    if(a.n===1)return 1;if(b.n===1)return -1;
-   const pos=e=>e?Array.from(wrapper.querySelectorAll('*')).indexOf(e):-1;
-   return pos(b.anchor)-pos(a.anchor)||b.n-a.n;
+   const order=docOrder(a.anchor,b.anchor);
+   return order===0?b.n-a.n:-order;
  });
  ordered.forEach(item=>{
    const el=document.createElement('div');el.className='article-inline-ad';el.id='articleAd'+item.n;el.setAttribute('aria-label','Advertisement');
-   if(item.n===1){wrapper.insertBefore(el,wrapper.firstChild);return;}
+   if(item.n===1){const first=intro||wrapper.firstElementChild;if(first&&first.parentNode)first.parentNode.insertBefore(el,first);else wrapper.insertBefore(el,wrapper.firstChild);return;}
    const anchor=item.anchor;
    if(anchor&&anchor.parentNode)anchor.insertAdjacentElement('afterend',el);else wrapper.appendChild(el);
  });
  return wrapper.innerHTML;
 }
-
 async function loadArticleMonetization(){const sb=window.tradeCalcSupabase;if(!sb)return;try{const [adRes,partnerRes]=await Promise.all([sb.from('article_ad_settings').select('*').eq('id',1).maybeSingle(),sb.from('article_partner_offers').select('*').eq('is_active',true).order('sort_order',{ascending:true})]);if(adRes.error)throw adRes.error;if(partnerRes.error)throw partnerRes.error;articleAdRows=adRes.data&&adRes.data.enabled?[1,2,3,4,5,6].map(n=>({enabled:!!adRes.data['zone'+n+'_enabled'],code:adRes.data['zone'+n+'_code']||''})):[];articlePartnerRows=(partnerRes.data||[]).map(o=>({...o,url:o.affiliate_url}));}catch(e){console.warn('Article-only monetization could not load:',e.message);articleAdRows=[];articlePartnerRows=[];}}
 function articleCard(a){return `<article class="article-card">${a.cover_image?`<a href="${articleHref(a.slug)}"><img src="${esc(a.cover_image)}" alt="${esc(a.title)}" loading="lazy"></a>`:''}<div class="article-card-body"><div class="note">${esc(a.category||'Insights')} · ${articleDate(a.published_at||a.created_at)}</div><h3><a href="${articleHref(a.slug)}">${esc(a.title)}</a></h3><p>${esc(a.excerpt||'Read the full article for practical insights and helpful explanations.')}</p><a href="${articleHref(a.slug)}">Read article →</a></div></article>`}
 function renderArticleLists(){const ticker=$('articleTicker'),archive=$('articleArchive');if(!ticker||!archive)return;const latest=articleRows.slice(0,10);if(!latest.length){ticker.innerHTML='<div class=\"article-ticker-row\"><span class=\"rank\">—</span><span class=\"meta\"><b>Articles are coming soon</b><small>New insights will appear here.</small></span></div>';archive.innerHTML='<div class=\"offer\"><b>No articles published yet</b><p>New articles will appear here after publication.</p></div>';$('loadMoreArticles').classList.add('hidden');return;}const rows=latest.map((a,i)=>`<a class=\"article-ticker-row\" href=\"${articleHref(a.slug)}\"><span class=\"rank\">${String(i+1).padStart(2,'0')}</span><span class=\"meta\"><b>${esc(a.title)}</b><small>${esc(a.category||'Insights')} · ${articleDate(a.published_at||a.created_at)}</small></span><span class=\"arrow\">↗</span></a>`).join('');ticker.classList.toggle('ticker-static',latest.length<5);ticker.style.height=latest.length<5?'auto':'';const track=ticker.querySelector('.article-ticker-track')||ticker;track.innerHTML=latest.length<5?rows:rows+rows;renderArticleArchive();}
@@ -461,4 +487,7 @@ if(!defs[current]){current='crypto';sharedToolMode=false;}applyShareMode();$('ye
 window.addEventListener('popstate',()=>{const params=new URLSearchParams(location.search),page=params.get('page'),slug=params.get('article');if(page){renderLegalPage(page);return;}document.documentElement.classList.remove('legal-route');$('legalPage')?.classList.add('hidden');if(slug)showArticle(slug);else{document.documentElement.classList.remove('article-route');document.querySelectorAll('#publicSite .wrap > section').forEach(el=>el.classList.remove('hidden'));const v=$('articleView');if(v)v.classList.add('hidden');document.title=settings.seo.title;}});
 window.addEventListener('storage',e=>{if(e.key==='tcp_settings'){settings=readSettings();settings.tools={...defaults.tools,...(settings.tools||{})};settings.seo={...defaults.seo,...(settings.seo||{})};applyBrand();document.title=settings.seo.title;renderOffers();applyTools();}});
 })();
-</script><script src="auto-language.js" defer></script></body></html>
+</script><script src="auto-language.js" defer></script><script id="hide-public-admin-entry-js">
+(function(){function hideAdminShortcut(){document.querySelectorAll('header nav a,header nav button,header .navlinks a,header .navlinks button').forEach(function(el){var label=(el.textContent||'').replace(/\s+/g,' ').trim().toLowerCase();var href=(el.getAttribute('href')||'').toLowerCase();if(label.includes('admin dashboard')||label==='admin'||href.includes('admin.html')||href.includes('dashboard'))el.style.setProperty('display','none','important');});}hideAdminShortcut();new MutationObserver(hideAdminShortcut).observe(document.body,{childList:true,subtree:true});})();
+</script>
+</body></html>
