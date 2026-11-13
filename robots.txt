@@ -1,4 +1,5 @@
 User-agent: *
 Allow: /
 Disallow: /admin.html
-Sitemap: https://YOUR-TRADECALC-DOMAIN/sitemap.xml
+
+Sitemap: https://tradecalc-pro.pages.dev/sitemap.xml
