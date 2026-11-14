@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /admin.html
 
-Sitemap: https://tradecalc-pro.pages.dev/sitemap.xml
+Sitemap: https://quiznovaclasses.online/sitemap.xml
