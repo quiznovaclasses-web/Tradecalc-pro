@@ -1,0 +1,1 @@
+Article URLs use the static-site query format ?article=SLUG. The current sitemap.xml remains the existing homepage sitemap template and intentionally keeps the production-domain placeholder. For stronger crawl coverage, add each published article URL to a generated sitemap or use prerendered /articles/slug/ routes once the production domain is confirmed.
