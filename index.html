@@ -90,13 +90,6 @@ footer{border-top:1px solid var(--line);padding:26px 0;color:var(--muted);font-s
 @media(max-width:760px){.navlinks{flex-wrap:wrap}.tcp-language-control{margin:4px 0}.tcp-language-control select{max-width:104px}}
 
 </style>
-<style id="single-ad-under-calculator-offers">
-/* Tool pages: keep one ad placement only; preserve all homepage and article ad placements. */
-html.tool-route #calcAd2,
-html.tool-route #calcAd3,
-html.tool-route #calcAd4,
-html.tool-route #homeBanner3{display:none!important}
-</style>
 
 <style id="article-partner-consolidation-v29">
 .article-partners-collection{display:block;margin:28px 0;padding:18px;border:1px solid var(--line,#2b4058);border-radius:18px;background:rgba(22,42,64,.55)}
@@ -518,7 +511,27 @@ function mountAdCodeInSlot(code,slot){
  nodes.forEach(node=>{if(node.nodeType===Node.TEXT_NODE&&!node.textContent.trim())return;if(node.nodeName==='SCRIPT'){const fresh=document.createElement('script');[...node.attributes].forEach(a=>fresh.setAttribute(a.name,a.value));fresh.text=node.textContent||'';target.appendChild(fresh);}else target.appendChild(document.importNode(node,true));});
 }
 function installMonetagTag(code,slot){mountAdCodeInSlot(code,slot);}
-function installHomeBannerTag(code,slot){mountAdCodeInSlot(code,slot);}
+function installHomeBannerTag(code,slot){
+ mountAdCodeInSlot(code,slot);
+ // Homepage offer-section fix: homeBanner3 is the single placement directly
+ // below the calculator's Crypto platform offers. Keep the first rendered
+ // banner unit only; do not alter other homepage zones or calculator zones.
+ if(slot!=='homeBanner3')return;
+ const target=$(slot);if(!target)return;
+ const keepOne=()=>{
+   const units=[...target.querySelectorAll('iframe, ins, img, object, embed')]
+     .filter(el=>el.getAttribute('aria-hidden')!=='true');
+   if(units.length>1){
+     units.slice(1).forEach(el=>{el.style.setProperty('display','none','important');el.setAttribute('aria-hidden','true');});
+   }
+ };
+ keepOne();
+ if(!target.dataset.singleAdObserver){
+   const observer=new MutationObserver(keepOne);
+   observer.observe(target,{childList:true,subtree:true});
+   target.dataset.singleAdObserver='1';
+ }
+}
 function installSitewideInPagePush(code){if(!code||document.head.querySelector('[data-monetag-sitewide-push="1"]'))return;const parsed=new DOMParser().parseFromString(code,'text/html');const scripts=[...parsed.querySelectorAll('script')];if(!scripts.length){console.warn('In-Page Push code must contain a script tag.');return;}scripts.forEach(src=>{const fresh=document.createElement('script');[...src.attributes].forEach(a=>fresh.setAttribute(a.name,a.value));fresh.dataset.monetagSitewidePush='1';fresh.text=src.textContent||'';document.head.appendChild(fresh);});}
 function distributeCalculatorAdSlots(){if(!document.documentElement.classList.contains('tool-route'))return;for(let i=1;i<=4;i++){const slot=$('calcAd'+i),anchor=$('toolAdAnchor'+i);if(slot&&anchor&&slot.parentNode!==anchor)anchor.appendChild(slot);if(slot&&anchor&&slot.parentNode===anchor)slot.style.display='block';}}
 function renderCalculatorAds(){const legacy=$('adInline');if(legacy){legacy.replaceChildren();legacy.classList.add('hidden');legacy.style.display='none';}distributeCalculatorAdSlots();for(let i=1;i<=4;i++){const a=monetagRows[i-1],slot=$('calcAd'+i);if(!slot)continue;if(a&&a.enabled&&String(a.code||'').trim()){slot.style.display='block';slot.dataset.loaded='';installMonetagTag(a.code,'calcAd'+i);}else{slot.replaceChildren();slot.dataset.loaded='';slot.style.display='none';}}}
