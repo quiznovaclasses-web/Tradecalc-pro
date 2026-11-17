@@ -245,7 +245,19 @@ function updateToolSeo(key,d){
  }
 }
 function renderCalc(){if(!defs[current])current='crypto';let d=defs[current];updateToolSeo(current,d);$('calcTitle').textContent=d.title;$('calcNote').textContent=d.note;$('calcResult').classList.remove('show');$('calcFields').innerHTML=d.fields.map(f=>`<div class="field"><label for="f_${f[0]}">${f[1]}</label><input id="f_${f[0]}" type="${f[2]}" step="any" value="${f[3]}" min="0"></div>`).join('');document.querySelectorAll('.toolbtn,.calculator-tile').forEach(b=>b.classList.toggle('active',b.dataset.tool===current));renderCalculatorOffers();renderCalculatorAds();}
-function calculate(){let d=defs[current],v={};for(let f of d.fields){let x=Number($('f_'+f[0]).value);if(!Number.isFinite(x)){$('calcResult').innerHTML='<b>Please enter valid non-negative numbers.</b>'; $('calcResult').classList.add('show');return;}v[f[0]]=x;}let r=d.calc(v);$('calcResult').innerHTML=`<small>${r[0]}</small><strong>${money(r[1])}${current==='risk'?' : 1':' USD'}</strong><small>${r[2]}</small>`;$('calcResult').classList.add('show');}
+function resultUnit(key,label){
+ const percentKeys=new Set(['pct','roi','riskpercent','marginlevel','cagrprofit','annualized','holdingperiod','realreturn','cashyield','divyieldcost','dividendgrowth','earningsyield','payout','drawdown','recovery','portfolioimpact','volatility','roc','stoch','williams','annualbasis','fundingannual','winrate','roe','cagr']);
+ const ratioKeys=new Set(['risk','riskreward','pe','pb','salesmultiple','priceearnings','profitfactor']);
+ const leverageKeys=new Set(['maxleverage']);
+ const moneyKeys=new Set(['crypto','forex','leverage','compound','dca','breakeven','fee','stockpnl','stockavg','dividend','sip','brokerage','portfolio','eps']);
+ if(percentKeys.has(key)) return '%';
+ if(ratioKeys.has(key)) return key==='risk'?' : 1':' ×';
+ if(leverageKeys.has(key)) return '×';
+ // Currency is shown only for legacy calculators whose input fields explicitly use USD.
+ if(moneyKeys.has(key)) return ' USD';
+ return '';
+}
+function calculate(){let d=defs[current],v={};for(let f of d.fields){let x=Number($('f_'+f[0]).value);if(!Number.isFinite(x)){$('calcResult').innerHTML='<b>Please enter valid non-negative numbers.</b>'; $('calcResult').classList.add('show');return;}v[f[0]]=x;}let r=d.calc(v);const unit=resultUnit(current,r[0]);$('calcResult').innerHTML=`<small>${r[0]}</small><strong>${money(r[1])}${unit}</strong><small>${r[2]}</small>`;$('calcResult').classList.add('show');}
 document.querySelectorAll('.toolbtn').forEach(b=>b.addEventListener('click',()=>selectTool(b.dataset.tool)));renderExtraToolButtons();renderCalculatorDirectory();initGlobalToolSearch();$('toolSearch').addEventListener('input',filterTools);filterTools();$('shareTool').addEventListener('click',async()=>{const url=new URL(location.href);url.searchParams.set('tool',current);url.hash='calculators';try{await navigator.clipboard.writeText(url.href);$('shareTool').textContent='Link copied!';setTimeout(()=>$('shareTool').textContent='Copy share link',1800)}catch(e){prompt('Copy this calculator link:',url.href)}});$('calculate').addEventListener('click',calculate);$('resetCalc').addEventListener('click',renderCalc);renderCalc();
 
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
