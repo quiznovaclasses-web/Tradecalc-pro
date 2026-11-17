@@ -104,12 +104,12 @@ footer{border-top:1px solid var(--line);padding:26px 0;color:var(--muted);font-s
 
 
 <style id="tcp-home-button-style">
-#tcpHomeButton{display:none;position:relative;top:auto;left:auto;z-index:20;box-sizing:border-box;width:max-content;align-items:center;gap:7px;margin:12px 16px 8px;padding:10px 15px;border:1px solid #45d6a3;border-radius:12px;background:#111c2e;color:#edf4ff;text-decoration:none;font:700 14px/1.2 Inter,system-ui,Arial,sans-serif;box-shadow:0 4px 14px #0003}
+#tcpHomeButton{display:none;position:fixed;left:16px;bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:1001;box-sizing:border-box;width:max-content;align-items:center;gap:7px;margin:0;padding:10px 15px;border:1px solid #45d6a3;border-radius:12px;background:#111c2e;color:#edf4ff;text-decoration:none;font:700 14px/1.2 Inter,system-ui,Arial,sans-serif;box-shadow:0 4px 14px #0005}
 html.tool-route #tcpHomeButton,html.article-route #tcpHomeButton{display:inline-flex}
 #tcpHomeButton:hover{background:#20344d;color:#fff}
-html.tool-route #globalToolSearch,html.article-route #globalToolSearch{display:none!important}
-@media(min-width:1280px){#tcpHomeButton{margin-left:max(16px,calc((100vw - 1240px)/2))}}
-@media(max-width:600px){#tcpHomeButton{margin:10px 16px 8px;padding:9px 13px;font-size:13px}}
+/* On calculator SEO pages, keep the functional global search and hide the duplicate in-page catalog filter. */
+html.tool-route .tool-search-wrap{display:none!important}
+@media(max-width:600px){#tcpHomeButton{left:12px;bottom:calc(14px + env(safe-area-inset-bottom,0px));padding:9px 13px;font-size:13px}}
 </style>
 
 </head>
