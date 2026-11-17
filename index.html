@@ -104,15 +104,18 @@ footer{border-top:1px solid var(--line);padding:26px 0;color:var(--muted);font-s
 
 
 <style id="tcp-home-button-style">
-#tcpHomeButton{display:none;position:fixed;top:88px;left:16px;z-index:99999;padding:10px 15px;border:1px solid #45d6a3;border-radius:12px;background:#111c2e;color:#edf4ff;text-decoration:none;font:700 14px/1.2 Inter,system-ui,Arial,sans-serif;box-shadow:0 6px 22px #0006}
-html.tool-route #tcpHomeButton,html.article-route #tcpHomeButton{display:inline-flex;align-items:center;gap:6px}
+#tcpHomeButton{display:none;position:relative;top:auto;left:auto;z-index:20;box-sizing:border-box;width:max-content;align-items:center;gap:7px;margin:12px 16px 8px;padding:10px 15px;border:1px solid #45d6a3;border-radius:12px;background:#111c2e;color:#edf4ff;text-decoration:none;font:700 14px/1.2 Inter,system-ui,Arial,sans-serif;box-shadow:0 4px 14px #0003}
+html.tool-route #tcpHomeButton,html.article-route #tcpHomeButton{display:inline-flex}
 #tcpHomeButton:hover{background:#20344d;color:#fff}
-@media(max-width:600px){#tcpHomeButton{top:82px;left:10px;padding:9px 12px;font-size:13px}}
+html.tool-route #globalToolSearch,html.article-route #globalToolSearch{display:none!important}
+@media(min-width:1280px){#tcpHomeButton{margin-left:max(16px,calc((100vw - 1240px)/2))}}
+@media(max-width:600px){#tcpHomeButton{margin:10px 16px 8px;padding:9px 13px;font-size:13px}}
 </style>
+
 </head>
 <body>
-<a id="tcpHomeButton" href="/" aria-label="Go to TradeCalc Pro home page">⌂ Home</a>
 <header><div class="wrap nav"><div class="brand"><span class="logo" id="brandLogo">T</span><span id="brandName">TradeCalc <span style="color:var(--accent)">Pro</span></span></div><div class="global-tool-search" id="globalToolSearch"><input id="globalToolSearchInput" type="search" placeholder="Search all 427+ calculators…" aria-label="Search all calculators" autocomplete="off"><div id="globalToolSearchResults" class="global-tool-results" hidden></div></div><nav class="navlinks"><a href="#calculators">Calculators</a><a href="#offers">Trading offers</a><a href="#about">About</a><label class="tcp-language-control" translate="no" aria-label="Choose language"><span>🌐</span><select id="tcpLanguageSelect" aria-label="Website language"><option value="auto">Auto</option><option value="en">English</option><option value="hi">हिन्दी</option><option value="es">Español</option><option value="fr">Français</option><option value="de">Deutsch</option><option value="pt">Português</option><option value="it">Italiano</option><option value="ru">Русский</option><option value="ar">العربية</option><option value="ja">日本語</option><option value="zh-CN">简体中文</option><option value="ko">한국어</option><option value="tr">Türkçe</option><option value="id">Bahasa Indonesia</option><option value="bn">বাংলা</option><option value="ur">اردو</option></select></label></nav></div></header>
+<a id="tcpHomeButton" href="/" aria-label="Go to TradeCalc Pro home page">⌂ Home</a>
 <main id="publicSite">
 <div class="wrap">
 <section class="hero"><div><div id="homeBanner1" class="home-banner-slot" aria-label="Advertisement"></div><div class="eyebrow">Free tools · Browser-based calculations · Smarter trade planning</div><h1>427 Free Online Calculators for <span style="color:var(--accent)">Trading, Finance & Learning</span></h1><p>Explore 427 free browser-based calculators across crypto, forex, stocks, education, mathematics, physics, personal finance, business and everyday conversions. Estimate position size, trading fees, investment returns, grades, study targets, percentages, energy, business metrics and more—without installing an app or connecting an exchange account.</p><div class="chips"><span class="chip">427 free calculators</span><span class="chip">Works in your browser</span><span class="chip">Mobile-friendly tools</span><span class="chip">No exchange login required</span></div><a href="#calculators" class="btn" style="display:inline-block;text-decoration:none">Browse all trading calculators →</a><div id="homeBanner2" class="home-banner-slot" aria-label="Advertisement"></div></div>
