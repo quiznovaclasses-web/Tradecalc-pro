@@ -10,22 +10,44 @@ const esc = (s) => String(s).replaceAll("&", "&amp;").replaceAll("<", "&lt;").re
 
 export async function onRequest() {
   const entries = new Map(STATIC_URLS.map(loc => [loc, null]));
+  let articleCount = 0;
+  let apiStatus = "not-requested";
+  let source = "static-fallback";
+
   try {
-    const endpoint = SUPABASE_URL + "/rest/v1/articles?select=slug,published_at&status=eq.published&published_at=not.is.null&published_at=lte." + encodeURIComponent(new Date().toISOString()) + "&order=published_at.desc&limit=50000";
+    const endpoint = SUPABASE_URL +
+      "/rest/v1/articles?select=slug,published_at" +
+      "&status=eq.published" +
+      "&published_at=not.is.null" +
+      "&published_at=lte." + encodeURIComponent(new Date().toISOString()) +
+      "&order=published_at.desc&limit=50000";
+
+    // Supabase sb_publishable_* keys must be sent as the apikey header.
+    // They are not JWTs and must not be sent as Authorization: Bearer tokens.
     const response = await fetch(endpoint, {
-      headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY }
+      method: "GET",
+      headers: {
+        apikey: SUPABASE_KEY,
+        Accept: "application/json"
+      }
     });
+
+    apiStatus = String(response.status);
     if (response.ok) {
       const rows = await response.json();
-      for (const row of rows) {
-        if (!row || !row.slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(row.slug)) continue;
-        const url = new URL(BASE + "/");
-        url.searchParams.set("article", row.slug);
-        entries.set(url.toString(), row.published_at || null);
+      if (Array.isArray(rows)) {
+        for (const row of rows) {
+          if (!row || !row.slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(row.slug)) continue;
+          const url = new URL(BASE + "/");
+          url.searchParams.set("article", row.slug);
+          entries.set(url.toString(), row.published_at || null);
+        }
+        articleCount = rows.length;
+        source = "supabase";
       }
     }
   } catch (_) {
-    // If Supabase is temporarily unavailable, return the complete static sitemap.
+    // Keep the known static URLs available if Supabase is temporarily unreachable.
   }
 
   const body = '<?xml version="1.0" encoding="UTF-8"?>' +
@@ -39,7 +61,10 @@ export async function onRequest() {
   return new Response(body, {
     headers: {
       "content-type": "application/xml; charset=UTF-8",
-      "cache-control": "public, max-age=300"
+      "cache-control": "public, max-age=60, s-maxage=60",
+      "x-sitemap-source": source,
+      "x-sitemap-article-count": String(articleCount),
+      "x-sitemap-api-status": apiStatus
     }
   });
 }
