@@ -13,6 +13,7 @@ export async function onRequest() {
   let articleCount = 0;
   let apiStatus = "not-requested";
   let source = "static-fallback";
+  let apiError = "";
 
   try {
     const endpoint = SUPABASE_URL +
@@ -44,10 +45,14 @@ export async function onRequest() {
         }
         articleCount = rows.length;
         source = "supabase";
+      } else {
+        apiError = "Supabase response was not a JSON array";
       }
+    } else {
+      apiError = (await response.text()).slice(0, 500).replace(/[\\r\\n]+/g, " ");
     }
-  } catch (_) {
-    // Keep the known static URLs available if Supabase is temporarily unreachable.
+  } catch (error) {
+    apiError = String(error && error.message ? error.message : error).slice(0, 500);
   }
 
   const body = '<?xml version="1.0" encoding="UTF-8"?>' +
@@ -61,10 +66,11 @@ export async function onRequest() {
   return new Response(body, {
     headers: {
       "content-type": "application/xml; charset=UTF-8",
-      "cache-control": "public, max-age=60, s-maxage=60",
+      "cache-control": "no-store, no-cache, must-revalidate, max-age=0",
       "x-sitemap-source": source,
       "x-sitemap-article-count": String(articleCount),
-      "x-sitemap-api-status": apiStatus
+      "x-sitemap-api-status": apiStatus,
+      "x-sitemap-error": apiError || "none"
     }
   });
 }
