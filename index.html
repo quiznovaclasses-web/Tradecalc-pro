@@ -259,7 +259,7 @@ function updateToolSeo(key,d){
  const canonical=document.getElementById('canonicalLink');
  if(isTool){
   const url=new URL(location.href);url.hash='';url.search='?tool='+encodeURIComponent(key);
-  const canonicalUrl=url.origin+url.pathname+url.search;
+  const canonicalUrl='https://quiznovaclasses.online'+url.pathname+url.search;
   if(canonical)canonical.href=canonicalUrl;
   const title=`${d.title} | Free Online Calculator | TradeCalc Pro`;
   const description=`Use the free ${d.title.toLowerCase()} from TradeCalc Pro. ${String(d.note||'').slice(0,115)} Enter your values and review an instant estimate online.`.slice(0,158);

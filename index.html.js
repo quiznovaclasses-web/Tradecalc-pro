@@ -270,7 +270,7 @@ async function showArticle(slug){
    view.style.display='block';
    document.title=a.seo_title||a.title||'TradeCalc Pro Article';
    const desc=document.querySelector('meta[name="description"]');if(desc)desc.content=a.seo_description||a.excerpt||a.title||'';
-   const canon=document.getElementById('canonicalLink');if(canon)canon.href=location.href;
+   const canon=document.getElementById('canonicalLink');if(canon){const articleCanonical=new URL('https://quiznovaclasses.online/');articleCanonical.searchParams.set('article',a.slug);canon.href=articleCanonical.toString();}
    window.scrollTo({top:0,behavior:'instant'});
    return true;
  }catch(err){
