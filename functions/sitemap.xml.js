@@ -411,4 +411,55 @@ async function loadSitemapData() {
     }
 
     diagnostics.articleCount = rows.length;
-    diagnostics.so
+        diagnostics.source = "supabase";
+
+    return { entries, diagnostics };
+
+  } catch (error) {
+    diagnostics.error = String(
+      error.message || error
+    ).slice(0, 1000);
+
+    return { entries, diagnostics };
+  }
+}
+
+function escapeXML(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+export async function onRequest() {
+  const { entries } = await loadSitemapData();
+
+  const urls = Array.from(entries.entries())
+    .map(([loc, lastmod]) => {
+      const lastmodTag = lastmod
+        ? `<lastmod>${escapeXML(lastmod)}</lastmod>`
+        : "";
+
+      return `
+  <url>
+    <loc>${escapeXML(loc)}</loc>
+    ${lastmodTag}
+  </url>`;
+    })
+    .join("");
+
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls}
+</urlset>`;
+
+  return new Response(xml, {
+    status: 200,
+    headers: {
+      "Content-Type": "application/xml; charset=UTF-8",
+      "Cache-Control": "no-store"
+    }
+  });
+}
